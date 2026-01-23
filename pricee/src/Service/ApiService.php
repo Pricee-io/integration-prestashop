@@ -15,7 +15,7 @@ class ApiService
     private HttpClientInterface $httpClient;
 
     public function __construct(
-        HttpClientInterface $httpClient,
+        HttpClientInterface $httpClient
     ) {
         $this->httpClient = $httpClient;
     }

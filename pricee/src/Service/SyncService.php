@@ -10,7 +10,7 @@ class SyncService
     private ApiService $apiService;
 
     public function __construct(
-        ApiService $apiService,
+        ApiService $apiService
     ) {
         $this->apiService = $apiService;
     }

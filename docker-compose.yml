@@ -1,6 +1,8 @@
 services:
   dev:
-    image: composer:2
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     container_name: prestashop_dev
     working_dir: /app
     volumes:

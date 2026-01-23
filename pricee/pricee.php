@@ -234,7 +234,7 @@ class Pricee extends Module
                 $productCount = 0;
 
                 try {
-                    $productCount = $category->getProducts($id_lang, 0, 1, getTotal: true, checkAccess: false);
+                    $productCount = $category->getProducts($id_lang, 0, 1, null, null, true, true, false, 1, false);
                 } catch (Exception $e) {
                     $productCount = 0;
                 }

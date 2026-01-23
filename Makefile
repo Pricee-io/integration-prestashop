@@ -28,3 +28,8 @@ analyze_ci:
 
 rector:
 	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/rector process
+
+package:
+	docker compose run --rm --user $(id -u):$(id -g) dev bash -c "cd /app/pricee && composer dump-autoload"
+	rm -f pricee.zip
+	zip -r pricee.zip pricee

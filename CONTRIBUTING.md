@@ -21,3 +21,10 @@ To run the plugin locally, follow these steps:
 5. Run `make lint` to lint your code and `make analyze` to analyze your code and fix any issues.
 6. Commit your changes.
 7. Run `make stop` to stop the development environment.
+
+## Packaging
+
+To package the plugin for distribution, follow these steps:
+
+1. Run `make package` to create a zip file of the plugin.
+2. Upload the zip file into your PrestaShop instance.

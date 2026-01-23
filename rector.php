@@ -9,7 +9,7 @@ return RectorConfig::configure()
         __DIR__ . '/pricee',
     ])
     ->withSkip([
-        __DIR__.'/vendor',
+        __DIR__.'/pricee/vendor',
     ])
     ->withPhpSets()
 ;
