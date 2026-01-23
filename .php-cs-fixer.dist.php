@@ -17,7 +17,7 @@ return (new Config())
     ->setFinder(
         (new Finder())
             // 💡 root folder to check
-            ->in(__DIR__)
+            ->in(__DIR__ . '/pricee')
             // 💡 additional files, eg bin entry file
             // ->append([__DIR__.'/bin-entry-file'])
             // 💡 folders to exclude, if any

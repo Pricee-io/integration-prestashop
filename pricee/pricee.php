@@ -60,7 +60,7 @@ class Pricee extends Module
         Configuration::updateValue('PRICEE_CLIENT_ID', null);
         Configuration::updateValue('PRICEE_API_KEY', null);
 
-        include dirname(__FILE__).'/sql/install.php';
+        include __DIR__.'/sql/install.php';
 
         return parent::install()
             && $this->registerHook('header')
@@ -72,7 +72,7 @@ class Pricee extends Module
         Configuration::deleteByName('PRICEE_CLIENT_ID');
         Configuration::deleteByName('PRICEE_API_KEY');
 
-        include dirname(__FILE__).'/sql/uninstall.php';
+        include __DIR__.'/sql/uninstall.php';
 
         return parent::uninstall();
     }

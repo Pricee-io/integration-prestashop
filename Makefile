@@ -19,3 +19,6 @@ lint:
 
 analyze:
 	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/phpstan analyse --level=7 --no-progress --no-interaction
+
+rector:
+	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/rector process
