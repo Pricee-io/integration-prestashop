@@ -5,6 +5,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
+      - prestashop_data:/var/www/html
     tty: true
 
   mysql:

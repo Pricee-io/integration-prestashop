@@ -18,7 +18,7 @@ lint:
 	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/php-cs-fixer fix --verbose
 
 analyze:
-	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/phpstan analyse --level=7 --no-progress --no-interaction
+	docker compose run --rm --user $(id -u):$(id -g) -e _PS_ROOT_DIR_=/var/www/html dev php vendor/bin/phpstan analyse
 
 rector:
 	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/rector process
