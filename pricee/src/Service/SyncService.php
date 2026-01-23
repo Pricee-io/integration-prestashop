@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pricee\Service;
+namespace PriceeIO\Service;
 
 class SyncService
 {
@@ -24,8 +24,13 @@ class SyncService
 
         $clientId = (string) \Configuration::get('PRICEE_CLIENT_ID');
         $apiKey = (string) \Configuration::get('PRICEE_API_KEY');
-        $bearer = $this->apiService->getBearer($clientId, $apiKey);
-        $websites = $this->apiService->getWebsites($bearer);
+
+        try {
+            $bearer = $this->apiService->getBearer($clientId, $apiKey);
+            $websites = $this->apiService->getWebsites($bearer);
+        } catch (\Exception $e) {
+            throw new \Exception('Failed to authenticate with Pricee API');
+        }
 
         $normalizedWebsiteUrl = rtrim($websiteUrl, '/');
         $websiteId = null;

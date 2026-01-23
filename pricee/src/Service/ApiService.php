@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Pricee\Service;
+namespace PriceeIO\Service;
 
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;

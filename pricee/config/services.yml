@@ -1,12 +1,12 @@
 services:
-  Pricee\Controller\Admin\SyncController:
+  PriceeIO\Controller\Admin\SyncController:
     autowire: true
     autoconfigure: true
 
-  Pricee\Service\SyncService:
+  PriceeIO\Service\SyncService:
       autowire: true
       autoconfigure: true
 
-  Pricee\Service\ApiService:
+  PriceeIO\Service\ApiService:
       autowire: true
       autoconfigure: true

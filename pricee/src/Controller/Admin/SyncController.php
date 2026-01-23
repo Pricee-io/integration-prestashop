@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Pricee\Controller\Admin;
+namespace PriceeIO\Controller\Admin;
 
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
-use Pricee\Service\SyncService;
+use PriceeIO\Service\SyncService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -30,7 +30,7 @@ class SyncController extends FrameworkBundleAdminController
         if (!empty($categories)) {
             $syncedCount = $this->syncService->sync(
                 $websiteUrl,
-                $idLang,
+                (int) $idLang,
                 $categories
             );
             $success = true;
