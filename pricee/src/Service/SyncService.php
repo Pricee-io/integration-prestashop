@@ -70,7 +70,7 @@ class SyncService
 
                     try {
                         $this->apiService->createProduct($bearer, $websiteId, $productUrl);
-                    } catch (\Exception) {
+                    } catch (\Exception $e) {
                         // ignore error for now and go to next product
                     }
 
