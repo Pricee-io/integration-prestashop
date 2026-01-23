@@ -7,6 +7,11 @@
 - Authenticate with Pricee.io using Client ID & Secret Key (API Key)
 - Sync selected product categories from PrestaShop to Pricee.io
 
+## Prerequisites
+
+- PHP 7.4 or higher
+- PrestaShop 1.7.8 or higher
+
 ## Contribute
 
 We welcome contributions from the community. If you have any suggestions or improvements, please feel free to open an issue or submit a pull request. 

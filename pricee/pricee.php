@@ -1,29 +1,29 @@
 <?php
-/**
-* 2007-2026 PrestaShop
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-* that is bundled with this package in the file LICENSE.txt.
-* It is also available through the world-wide-web at this URL:
-* http://opensource.org/licenses/afl-3.0.php
-* If you did not receive a copy of the license and are unable to
-* obtain it through the world-wide-web, please send an email
-* to license@prestashop.com so we can send you a copy immediately.
-*
-* DISCLAIMER
-*
-* Do not edit or add to this file if you wish to upgrade PrestaShop to newer
-* versions in the future. If you wish to customize PrestaShop for your
-* needs please refer to http://www.prestashop.com for more information.
-*
-*  @author    PrestaShop SA <contact@prestashop.com>
-*  @copyright 2007-2026 PrestaShop SA
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*  International Registered Trademark & Property of PrestaShop SA
-*/
 
+/**
+ * 2007-2026 PrestaShop.
+ *
+ * NOTICE OF LICENSE
+ *
+ * This source file is subject to the Academic Free License (AFL 3.0)
+ * that is bundled with this package in the file LICENSE.txt.
+ * It is also available through the world-wide-web at this URL:
+ * http://opensource.org/licenses/afl-3.0.php
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to license@prestashop.com so we can send you a copy immediately.
+ *
+ * DISCLAIMER
+ *
+ * Do not edit or add to this file if you wish to upgrade PrestaShop to newer
+ * versions in the future. If you wish to customize PrestaShop for your
+ * needs please refer to http://www.prestashop.com for more information.
+ *
+ *  @author    PrestaShop SA <contact@prestashop.com>
+ *  @copyright 2007-2026 PrestaShop SA
+ *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
+ *  International Registered Trademark & Property of PrestaShop SA
+ */
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -40,9 +40,7 @@ class Pricee extends Module
         $this->author = 'Pricee.io';
         $this->need_instance = 0;
 
-        /**
-         * Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
-         */
+        // Set $this->bootstrap to true if your module is compliant with bootstrap (PrestaShop 1.6)
         $this->bootstrap = true;
 
         parent::__construct();
@@ -50,7 +48,7 @@ class Pricee extends Module
         $this->displayName = $this->l('Pricee.io');
         $this->description = $this->l('PrestaShop integration with Pricee.io');
 
-        $this->ps_versions_compliancy = array('min' => '1.7', 'max' => '9.0.2');
+        $this->ps_versions_compliancy = ['min' => '1.7.8', 'max' => '9.0.2'];
     }
 
     /**
@@ -62,11 +60,11 @@ class Pricee extends Module
         Configuration::updateValue('PRICEE_CLIENT_ID', null);
         Configuration::updateValue('PRICEE_API_KEY', null);
 
-        include(dirname(__FILE__).'/sql/install.php');
+        include dirname(__FILE__).'/sql/install.php';
 
-        return parent::install() &&
-            $this->registerHook('header') &&
-            $this->registerHook('displayBackOfficeHeader');
+        return parent::install()
+            && $this->registerHook('header')
+            && $this->registerHook('displayBackOfficeHeader');
     }
 
     public function uninstall()
@@ -74,20 +72,18 @@ class Pricee extends Module
         Configuration::deleteByName('PRICEE_CLIENT_ID');
         Configuration::deleteByName('PRICEE_API_KEY');
 
-        include(dirname(__FILE__).'/sql/uninstall.php');
+        include dirname(__FILE__).'/sql/uninstall.php';
 
         return parent::uninstall();
     }
 
     /**
-     * Load the configuration form
+     * Load the configuration form.
      */
     public function getContent()
     {
-        /**
-         * If values have been submitted in the form, process.
-         */
-        if (((bool)Tools::isSubmit('submitPriceeModule')) == true) {
+        // If values have been submitted in the form, process.
+        if (((bool) Tools::isSubmit('submitPriceeModule')) == true) {
             $this->postProcess();
         }
 
@@ -100,6 +96,17 @@ class Pricee extends Module
         $output .= $this->context->smarty->fetch($this->local_path.'views/templates/admin/sync.tpl');
 
         return $output;
+    }
+
+    /**
+     * Add the CSS & JavaScript files you want to be loaded in the BO.
+     */
+    public function hookDisplayBackOfficeHeader()
+    {
+        if (Tools::getValue('configure') == $this->name) {
+            $this->context->controller->addJS($this->_path.'views/js/back.js');
+            $this->context->controller->addCSS($this->_path.'views/css/back.css');
+        }
     }
 
     /**
@@ -121,13 +128,13 @@ class Pricee extends Module
             .'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
-        $helper->tpl_vars = array(
-            'fields_value' => $this->getConfigFormValues(), /* Add values for your inputs */
+        $helper->tpl_vars = [
+            'fields_value' => $this->getConfigFormValues(), // Add values for your inputs
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
-        );
+        ];
 
-        return $helper->generateForm(array($this->getConfigForm()));
+        return $helper->generateForm([$this->getConfigForm()]);
     }
 
     /**
@@ -135,32 +142,32 @@ class Pricee extends Module
      */
     protected function getConfigForm()
     {
-        return array(
-            'form' => array(
-                'legend' => array(
-                'title' => $this->l('Configuration'),
-                'icon' => 'icon-cogs',
-                ),
-                'input' => array(
-                    array(
+        return [
+            'form' => [
+                'legend' => [
+                    'title' => $this->l('Configuration'),
+                    'icon' => 'icon-cogs',
+                ],
+                'input' => [
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'prefix' => '<i class="icon icon-envelope"></i>',
                         'name' => 'PRICEE_CLIENT_ID',
                         'label' => $this->l('ID Client'),
-                    ),
-                    array(
+                    ],
+                    [
                         'col' => 3,
                         'type' => 'password',
                         'name' => 'PRICEE_API_KEY',
                         'label' => $this->l('Clé API'),
-                    ),
-                ),
-                'submit' => array(
+                    ],
+                ],
+                'submit' => [
                     'title' => $this->l('Enregistrer'),
-                ),
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     /**
@@ -168,10 +175,10 @@ class Pricee extends Module
      */
     protected function getConfigFormValues()
     {
-        return array(
+        return [
             'PRICEE_CLIENT_ID' => Configuration::get('PRICEE_CLIENT_ID', null),
             'PRICEE_API_KEY' => Configuration::get('PRICEE_API_KEY', null),
-        );
+        ];
     }
 
     /**
@@ -186,20 +193,7 @@ class Pricee extends Module
         }
     }
 
-    /**
-    * Add the CSS & JavaScript files you want to be loaded in the BO.
-    */
-    public function hookDisplayBackOfficeHeader()
-    {
-        if (Tools::getValue('configure') == $this->name) {
-            $this->context->controller->addJS($this->_path.'views/js/back.js');
-            $this->context->controller->addCSS($this->_path.'views/css/back.css');
-        }
-    }
-
-    /**
-     * Add the CSS & JavaScript files you want to be added on the FO.
-     */
+    // Add the CSS & JavaScript files you want to be added on the FO.
     // public function hookHeader()
     // {
     //     $this->context->controller->addJS($this->_path.'/views/js/front.js');

@@ -17,5 +17,7 @@ To run the plugin locally, follow these steps:
 1. Install Docker and Docker Compose.
 2. Clone the repository.
 3. Run `make start` to start the development environment with the plugin already installed.
-4. Make your changes and commit them.
-5. Run `make stop` to stop the development environment.
+4. Make your changes.
+5. Run `make lint` to lint your code and `make analyze` to analyze your code and fix any issues.
+6. Commit your changes.
+7. Run `make stop` to stop the development environment.
