@@ -7,7 +7,7 @@ stop:
 	docker compose down
 
 clean:
-	docker compose down -v
+	docker compose down -v --remove-orphans
 
 logs:
 	docker compose logs -f
