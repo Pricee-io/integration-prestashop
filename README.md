@@ -14,7 +14,7 @@
 
 ## Installation
 
-1. Download the plugin from the last [GitHub release](https://github.com/Pricee-io/integration-prestashop/releases).
+1. Download the plugin named "pricee.zip" from the last [GitHub release](https://github.com/Pricee-io/integration-prestashop/releases).
 2. Install the plugin from the PrestaShop backoffice.
 
 ## Contribute
