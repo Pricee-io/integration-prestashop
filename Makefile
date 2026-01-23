@@ -15,10 +15,16 @@ dev:
 	docker compose run --rm --user $(id -u):$(id -g) dev bash
 
 lint:
-	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/php-cs-fixer fix --verbose
+	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/php-cs-fixer fix
+
+lint_ci:
+	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/php-cs-fixer fix --dry-run --diff
 
 analyze:
 	docker compose run --rm --user $(id -u):$(id -g) -e _PS_ROOT_DIR_=/var/www/html dev php vendor/bin/phpstan analyse
+
+analyze_ci:
+	docker compose run --rm --user $(id -u):$(id -g) -e _PS_ROOT_DIR_=/var/www/html dev php vendor/bin/phpstan analyse --error-format github
 
 rector:
 	docker compose run --rm --user $(id -u):$(id -g) dev php vendor/bin/rector process
