@@ -1,5 +1,5 @@
 start:
-	docker compose up -d
+	docker compose up -d --remove-orphans
 	docker compose run --rm --user $(id -u):$(id -g) dev composer install --no-interaction
 
 stop:
