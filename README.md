@@ -12,6 +12,11 @@
 - PHP 7.4 or higher
 - PrestaShop 1.7.8 or higher
 
+## Installation
+
+1. Download the plugin from the last [GitHub release](https://github.com/Pricee-io/integration-prestashop/releases).
+2. Install the plugin from the PrestaShop backoffice.
+
 ## Contribute
 
 We welcome contributions from the community. If you have any suggestions or improvements, please feel free to open an issue or submit a pull request. 
