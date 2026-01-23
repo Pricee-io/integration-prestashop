@@ -1,0 +1,44 @@
+services:
+  mysql:
+    image: mariadb:12
+    container_name: prestashop_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: prestashop
+      MYSQL_USER: prestashop
+      MYSQL_PASSWORD: prestashop
+      MYSQL_ROOT_PASSWORD: root
+      TZ: Europe/Paris
+      MYSQL_INITDB_SKIP_TZINFO: 1
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  prestashop:
+    image: prestashop/prestashop:9-apache
+    container_name: prestashop_app
+    depends_on:
+      - mysql
+    ports:
+      - "8080:80"
+    environment:
+      DB_SERVER: mysql
+      DB_NAME: prestashop
+      DB_USER: prestashop
+      DB_PASSWD: prestashop
+
+      PS_DEV_MODE: 1
+      PS_INSTALL_AUTO: 1
+      PS_DOMAIN: localhost:8080
+      PS_FOLDER_ADMIN: admin-dev
+      PS_FOLDER_INSTALL: install-dev
+
+      ADMIN_MAIL: admin@demo.local
+      ADMIN_PASSWD: admin123
+
+    volumes:
+      - prestashop_data:/var/www/html
+      - ./pricee:/var/www/html/modules/pricee
+
+volumes:
+  mysql_data:
+  prestashop_data:
