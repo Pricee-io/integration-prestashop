@@ -28,6 +28,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+require_once __DIR__.'/vendor/autoload.php';
+
 class Pricee extends Module
 {
     protected $config_form = false;
@@ -87,7 +89,13 @@ class Pricee extends Module
             $this->postProcess();
         }
 
-        $this->context->smarty->assign('module_dir', $this->_path);
+        $ajaxSyncLink = $this->get('router')->generate('priceeio_sync_admin');
+        $this->context->smarty->assign([
+            'module_dir' => $this->_path,
+            'id_lang' => $this->context->language->id,
+            'categories' => $this->getCategories(),
+            'ajax_sync_link' => $ajaxSyncLink,
+        ]);
 
         $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
 
@@ -191,6 +199,55 @@ class Pricee extends Module
         foreach (array_keys($form_values) as $key) {
             Configuration::updateValue($key, Tools::getValue($key));
         }
+    }
+
+    /**
+     * Get all categories for selection.
+     */
+    private function getCategories()
+    {
+        $id_lang = $this->context->language->id;
+        $rawCategories = Category::getCategories($id_lang, false, true);
+        $categories = [];
+
+        foreach ($rawCategories as $levelArray) {
+            foreach ($levelArray as $catData) {
+                if (!isset($catData['infos']['id_category'])) {
+                    continue;
+                }
+
+                $catId = (int) $catData['infos']['id_category'];
+                // Skip root category (id=1)
+                if ($catId <= 1) {
+                    continue;
+                }
+
+                // Load category
+                $category = new Category($catId, $id_lang);
+
+                // Make sure the object is fully loaded
+                if (!Validate::isLoadedObject($category) || !$category->active) {
+                    continue;
+                }
+
+                // Get product count
+                $productCount = 0;
+
+                try {
+                    $productCount = $category->getProducts($id_lang, 0, 1, getTotal: true, checkAccess: false);
+                } catch (Exception $e) {
+                    $productCount = 0;
+                }
+
+                $categories[] = [
+                    'id_category' => $category->id,
+                    'name' => $category->name,
+                    'product_count' => $productCount,
+                ];
+            }
+        }
+
+        return $categories;
     }
 
     // Add the CSS & JavaScript files you want to be added on the FO.

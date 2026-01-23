@@ -1,0 +1,5 @@
+priceeio_sync_admin:
+    path: pricee/sync
+    methods: [POST]
+    defaults:
+      _controller: 'Pricee\Controller\Admin\SyncController::syncAction'

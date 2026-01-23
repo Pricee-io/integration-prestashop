@@ -1,0 +1,16 @@
+{
+  "name": "priceeio/integration-prestashop",
+  "type": "prestashop-module",
+  "description": "Sylius integration with Pricee.io",
+  "require": {
+    "php": ">=7.4"
+  },
+  "autoload": {
+    "psr-4": {
+      "Pricee\\": "src/"
+    }
+  },
+  "config": {
+      "prepend-autoloader": false
+  }
+}
