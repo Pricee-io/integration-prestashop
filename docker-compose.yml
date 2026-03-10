@@ -30,7 +30,7 @@ services:
     depends_on:
       - mysql
     ports:
-      - "8080:80"
+      - "8081:80"
     environment:
       DB_SERVER: mysql
       DB_NAME: prestashop
@@ -39,7 +39,7 @@ services:
 
       PS_DEV_MODE: 1
       PS_INSTALL_AUTO: 1
-      PS_DOMAIN: localhost:8080
+      PS_DOMAIN: localhost:8081
       PS_FOLDER_ADMIN: admin-dev
       PS_FOLDER_INSTALL: install-dev
 
