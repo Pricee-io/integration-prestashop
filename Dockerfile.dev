@@ -1,6 +1,5 @@
 FROM php:8.4-cli
 
-# Install dependencies for composer and PrestaShop
 RUN apt-get update && apt-get install -y \
     unzip \
     zip \
