@@ -61,6 +61,8 @@ class Pricee extends Module
     {
         Configuration::updateValue('PRICEE_CLIENT_ID', null);
         Configuration::updateValue('PRICEE_API_KEY', null);
+        Configuration::updateValue('PRICEE_WEBHOOK_ENABLED', null);
+        Configuration::updateValue('PRICEE_WEBOOK_SECRET', null);
 
         include __DIR__.'/sql/install.php';
 
@@ -73,6 +75,8 @@ class Pricee extends Module
     {
         Configuration::deleteByName('PRICEE_CLIENT_ID');
         Configuration::deleteByName('PRICEE_API_KEY');
+        Configuration::deleteByName('PRICEE_WEBHOOK_ENABLED');
+        Configuration::deleteByName('PRICEE_WEBOOK_SECRET');
 
         include __DIR__.'/sql/uninstall.php';
 
@@ -146,7 +150,7 @@ class Pricee extends Module
     }
 
     /**
-     * Create the structure of your form.
+     * Structure of form.
      */
     protected function getConfigForm()
     {
@@ -170,6 +174,42 @@ class Pricee extends Module
                         'name' => 'PRICEE_API_KEY',
                         'label' => $this->l('Clé API'),
                     ],
+                    [
+                        'col' => 3,
+                        'type' => 'switch',
+                        'label' => $this->l('Activer la synchronisation webhook'),
+                        'name' => 'PRICEE_WEBHOOK_ENABLED',
+                        'is_bool' => true,
+                        'values' => [
+                            [
+                                'id' => 'enabled_on',
+                                'value' => 1,
+                                'label' => $this->l('Oui'),
+                            ],
+                            [
+                                'id' => 'enabled_off',
+                                'value' => 0,
+                                'label' => $this->l('Non'),
+                            ],
+                        ],
+                        'desc' => $this->l('Active la mise à jour automatique des prix de vos produits depuis Pricee.'),
+                    ],
+                    [
+                        'col' => 3,
+                        'type' => 'text',
+                        'label' => $this->l('URL du Webhook'),
+                        'name' => 'PRICEE_WEBHOOK_URL_DISPLAY',
+                        'readonly' => true,
+                        'prefix' => '<i class="icon icon-link"></i>',
+                        'desc' => $this->l('Copiez cette URL pour configurer le webhook dans Pricee.io.'),
+                    ],
+                    [
+                        'col' => 3,
+                        'type' => 'text',
+                        'name' => 'PRICEE_WEBHOOK_SECRET',
+                        'label' => $this->l('Clé secrète webhook'),
+                        'desc' => $this->l('Clé secrète pour valider la provenance des webhooks.'),
+                    ],
                 ],
                 'submit' => [
                     'title' => $this->l('Enregistrer'),
@@ -183,9 +223,14 @@ class Pricee extends Module
      */
     protected function getConfigFormValues()
     {
+        $webhookUrl = $this->context->link->getModuleLink($this->name, 'webhook', [], true);
+
         return [
             'PRICEE_CLIENT_ID' => Configuration::get('PRICEE_CLIENT_ID', null),
             'PRICEE_API_KEY' => Configuration::get('PRICEE_API_KEY', null),
+            'PRICEE_WEBHOOK_ENABLED' => Configuration::get('PRICEE_WEBHOOK_ENABLED', null),
+            'PRICEE_WEBHOOK_SECRET' => Configuration::get('PRICEE_WEBHOOK_SECRET', null),
+            'PRICEE_WEBHOOK_URL_DISPLAY' => $webhookUrl,
         ];
     }
 
