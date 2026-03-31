@@ -65,6 +65,9 @@ class SyncService
                     &$idLang,
                     &$syncedCount
                 ) {
+                    // Get the internal PrestaShop product ID
+                    $productExtId = (string) $product->id;
+
                     $productUrl = $context->link->getProductLink(
                         $product,
                         null,
@@ -74,7 +77,12 @@ class SyncService
                     );
 
                     try {
-                        $this->apiService->createProduct($bearer, $websiteId, $productUrl);
+                        $this->apiService->createOrUpdateProduct(
+                            $bearer,
+                            $websiteId,
+                            $productUrl,
+                            $productExtId,
+                        );
                     } catch (\Exception $e) {
                         // ignore error for now and go to next product
                     }
