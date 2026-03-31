@@ -25,12 +25,12 @@ services:
       - mysql_data:/var/lib/mysql
 
   prestashop:
-    image: prestashop/prestashop:9-apache
+    image: prestashop/prestashop:9.1.0-apache
     container_name: prestashop_app
     depends_on:
       - mysql
     ports:
-      - "8081:80"
+      - "8080:80"
     environment:
       DB_SERVER: mysql
       DB_NAME: prestashop
@@ -39,7 +39,6 @@ services:
 
       PS_DEV_MODE: 1
       PS_INSTALL_AUTO: 1
-      PS_DOMAIN: localhost:8081
       PS_FOLDER_ADMIN: admin-dev
       PS_FOLDER_INSTALL: install-dev
 

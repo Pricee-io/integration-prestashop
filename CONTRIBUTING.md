@@ -16,7 +16,7 @@ To run the plugin locally, follow these steps:
 
 1. Install Docker and Docker Compose.
 2. Clone the repository.
-3. Run `make start` to start the development environment with the plugin already installed.
+3. Run `make start` to start the development environment with the plugin already installed. Then, youn can access back-office at http://localhost:8080/admin-dev
 4. Make your changes.
 5. Run `make lint` to lint your code and `make analyze` to analyze your code and fix any issues.
 6. Commit your changes.
