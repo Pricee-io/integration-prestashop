@@ -35,12 +35,12 @@ class PriceeWebhookModuleFrontController extends ModuleFrontController
 
         // Verify signature
         $expected_signature = hash_hmac('sha256', $body, $secret);
-        // if (!hash_equals($expected_signature, $signature)) {
-        //     http_response_code(401);
-        //     echo json_encode(['success' => false, 'message' => 'Invalid signature']);
+        if (!hash_equals($expected_signature, $signature)) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Invalid signature']);
 
-        //     exit;
-        // }
+            exit;
+        }
 
         // Get JSON
         $data = json_decode($body, true);

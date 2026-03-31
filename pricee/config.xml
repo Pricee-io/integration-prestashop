@@ -2,7 +2,7 @@
 <module>
 	<name>pricee</name>
 	<displayName><![CDATA[Pricee.io]]></displayName>
-	<version><![CDATA[1.0.0]]></version>
+	<version><![CDATA[1.1.0]]></version>
 	<description><![CDATA[PrestaShop integration with Pricee.io]]></description>
 	<author><![CDATA[Pricee.io]]></author>
 	<tab><![CDATA[advertising_marketing]]></tab>

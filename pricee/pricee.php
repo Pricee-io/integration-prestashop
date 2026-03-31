@@ -38,7 +38,7 @@ class Pricee extends Module
     {
         $this->name = 'pricee';
         $this->tab = 'advertising_marketing';
-        $this->version = '1.0.0';
+        $this->version = '1.1.0';
         $this->author = 'Pricee.io';
         $this->need_instance = 0;
 
