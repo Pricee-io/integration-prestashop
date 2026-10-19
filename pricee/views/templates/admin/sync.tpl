@@ -43,8 +43,8 @@
                     name="categories[]"
                     value="{$category.id_category}"
                     id="category-{$category.id_category}">
-                <label class="form-check-label" for="category-{$category.id_category}">
-                    {$category.name} ({$category.product_count})
+                <label class="form-check-label{if !$category.active} text-muted{/if}" for="category-{$category.id_category}">
+                    {$category.name} ({$category.product_count}){if !$category.active} — {l s='désactivée' mod='pricee'}{/if}
                 </label>
             </div>
         {/foreach}

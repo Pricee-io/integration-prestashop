@@ -271,7 +271,7 @@ class Pricee extends Module
                 $category = new Category($catId, $id_lang);
 
                 // Make sure the object is fully loaded
-                if (!Validate::isLoadedObject($category) || !$category->active) {
+                if (!Validate::isLoadedObject($category)) {
                     continue;
                 }
 
@@ -288,6 +288,7 @@ class Pricee extends Module
                     'id_category' => $category->id,
                     'name' => $category->name,
                     'product_count' => $productCount,
+                    'active' => (bool) $category->active,
                 ];
             }
         }
