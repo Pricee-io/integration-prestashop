@@ -1,0 +1,43 @@
+# AGENTS.md
+
+Guidance for AI coding agents working in this repository.
+
+## Project
+
+Pricee.io PrestaShop plugin (`pricee/`): syncs PrestaShop products to the Pricee.io platform. PHP 7.4+, PrestaShop 1.7.8+.
+
+- `pricee/pricee.php` — main module class (configuration, category listing)
+- `pricee/src/Controller/Admin/SyncController.php` — AJAX sync endpoint
+- `pricee/src/Service/SyncService.php` — sync logic and Pricee.io API calls
+- `pricee/views/templates/admin/` — Smarty admin templates (French labels)
+
+## Development
+
+All tooling runs through the Docker dev environment (see `Makefile`):
+
+- `make dev` — shell into the dev container
+- `make lint` — php-cs-fixer (fix), `make lint_ci` — dry-run check
+- `make analyze` — phpstan
+- `make rector` — rector
+- `make package` — regenerate `pricee.zip` for release
+
+Run lint and analysis before committing.
+
+## Commits
+
+- Do NOT add `Co-Authored-By` trailers or any AI attribution to commit messages.
+
+## Versioning
+
+The plugin follows [Semantic Versioning](https://semver.org/). The version is defined in two places and both must be updated together:
+
+1. `$this->version` in `pricee/pricee.php`
+2. A new `## [x.y.z] - YYYY-MM-DD` entry at the top of `CHANGELOG.md`
+
+Bump rules:
+
+- **Patch** (`1.1.0` → `1.1.1`): bug fixes, no behavior change
+- **Minor** (`1.1.0` → `1.2.0`): new features or backward-compatible behavior changes
+- **Major** (`1.1.0` → `2.0.0`): breaking changes (PrestaShop compatibility drops, config/DB schema changes)
+
+Make the version bump its own commit, titled `Bump version to x.y.z`, separate from feature commits.
