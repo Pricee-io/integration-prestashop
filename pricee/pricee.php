@@ -50,7 +50,7 @@ class Pricee extends Module
         $this->displayName = $this->l('Pricee.io');
         $this->description = $this->l('PrestaShop integration with Pricee.io');
 
-        $this->ps_versions_compliancy = ['min' => '1.7.8', 'max' => '9.1.0'];
+        $this->ps_versions_compliancy = ['min' => '1.7.8', 'max' => '9.2.0'];
     }
 
     /**
