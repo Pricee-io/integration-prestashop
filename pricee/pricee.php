@@ -62,7 +62,7 @@ class Pricee extends Module
         Configuration::updateValue('PRICEE_CLIENT_ID', null);
         Configuration::updateValue('PRICEE_API_KEY', null);
         Configuration::updateValue('PRICEE_WEBHOOK_ENABLED', null);
-        Configuration::updateValue('PRICEE_WEBOOK_SECRET', null);
+        Configuration::updateValue('PRICEE_WEBHOOK_SECRET', null);
 
         include __DIR__.'/sql/install.php';
 
@@ -76,7 +76,7 @@ class Pricee extends Module
         Configuration::deleteByName('PRICEE_CLIENT_ID');
         Configuration::deleteByName('PRICEE_API_KEY');
         Configuration::deleteByName('PRICEE_WEBHOOK_ENABLED');
-        Configuration::deleteByName('PRICEE_WEBOOK_SECRET');
+        Configuration::deleteByName('PRICEE_WEBHOOK_SECRET');
 
         include __DIR__.'/sql/uninstall.php';
 
