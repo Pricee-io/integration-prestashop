@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Add CSRF token validation to the sync endpoint
+- Harden sync: paginate the Pricee websites API, sync each product only once when categories overlap, and return JSON for all sync errors; webhook events now use PrestaShop logs instead of a web-accessible file
+
 ## [1.2.1] - 2026-10-22
 
 - Handle Pricee API errors during product sync: return a JSON error with the API detail and log it in PrestaShop logs instead of an HTTP 500

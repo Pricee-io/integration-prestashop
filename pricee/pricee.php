@@ -99,6 +99,7 @@ class Pricee extends Module
             'id_lang' => $this->context->language->id,
             'categories' => $this->getCategories(),
             'ajax_sync_link' => $ajaxSyncLink,
+            'sync_token' => Tools::getAdminTokenLite('AdminModules'),
         ]);
 
         $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');

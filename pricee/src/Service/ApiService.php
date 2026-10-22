@@ -11,6 +11,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class ApiService
 {
     private const BASE_URL = 'https://app.pricee.io/api/v1/';
+    private const API_PAGE_SIZE = 30;
+    private const MAX_WEBSITE_PAGES = 20;
 
     private HttpClientInterface $httpClient;
 
@@ -66,27 +68,36 @@ class ApiService
 
     public function getWebsites(string $bearer): array
     {
+        $websites = [];
+        $page = 1;
+
         try {
-            $response = $this->httpClient->request('GET', self::BASE_URL.'websites', [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                    'Authorization' => 'Bearer '.$bearer,
-                ],
-            ]);
+            do {
+                $response = $this->httpClient->request('GET', self::BASE_URL.'websites?page='.$page, [
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                        'Authorization' => 'Bearer '.$bearer,
+                    ],
+                ]);
 
-            $status = $response->getStatusCode();
+                $status = $response->getStatusCode();
 
-            if (200 !== $status) {
-                throw new \RuntimeException(sprintf(
-                    'Failed to fetch websites. Status: %d. Response: %s',
-                    $status,
-                    $response->getContent(false),
-                ));
-            }
+                if (200 !== $status) {
+                    throw new \RuntimeException(sprintf(
+                        'Failed to fetch websites. Status: %d. Response: %s',
+                        $status,
+                        $response->getContent(false),
+                    ));
+                }
 
-            $data = $response->toArray(false);
+                $data = $response->toArray(false);
 
-            return $data['member'];
+                $members = $data['member'] ?? [];
+                $websites = array_merge($websites, $members);
+                ++$page;
+            } while (count($members) >= self::API_PAGE_SIZE && $page <= self::MAX_WEBSITE_PAGES);
+
+            return $websites;
         } catch (ClientExceptionInterface|TransportExceptionInterface $e) {
             throw new \RuntimeException('Failed to fetch websites: '.$e->getMessage(), 0, $e);
         }

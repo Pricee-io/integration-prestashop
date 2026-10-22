@@ -21,6 +21,15 @@ class SyncController extends FrameworkBundleAdminController
 
     public function syncAction(Request $request): JsonResponse
     {
+        $token = (string) $request->request->get('sync_token');
+        if ('' === $token || !hash_equals(\Tools::getAdminTokenLite('AdminModules'), $token)) {
+            return new JsonResponse([
+                'success' => false,
+                'synced' => 0,
+                'error' => 'Invalid token',
+            ], 403);
+        }
+
         $websiteUrl = $request->getSchemeAndHttpHost();
         $idLang = $request->request->get('id_lang');
         $categories = $request->request->all('categories');
@@ -35,7 +44,7 @@ class SyncController extends FrameworkBundleAdminController
                     $categories
                 );
                 $success = true;
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 return new JsonResponse([
                     'success' => false,
                     'synced' => 0,

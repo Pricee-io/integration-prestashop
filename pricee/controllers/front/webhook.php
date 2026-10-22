@@ -57,7 +57,7 @@ class PriceeWebhookModuleFrontController extends ModuleFrontController
                 continue;
             }
 
-            $product = new Product($productData['extId']);
+            $product = new Product((int) $productData['extId']);
             if (!Validate::isLoadedObject($product)) {
                 continue;
             }
@@ -75,13 +75,14 @@ class PriceeWebhookModuleFrontController extends ModuleFrontController
                 $product->price = $newPrice;
                 $product->update();
 
-                $this->pricee_log(
-                    "Price updated for product ID {$product->id} | Old: {$currentPrice} -> New: {$newPrice}"
+                PrestaShopLogger::addLog(
+                    "Pricee webhook: price updated for product ID {$product->id} | Old: {$currentPrice} -> New: {$newPrice}",
+                    1
                 );
             } catch (Exception $e) {
-                $this->pricee_log(
-                    "Price update failed for product ID {$product->id}: ".$e->getMessage(),
-                    'ERROR'
+                PrestaShopLogger::addLog(
+                    "Pricee webhook: price update failed for product ID {$product->id}: ".$e->getMessage(),
+                    3
                 );
             }
         }
@@ -90,30 +91,5 @@ class PriceeWebhookModuleFrontController extends ModuleFrontController
         echo json_encode(['success' => true, 'message' => 'Webhook received and validated']);
 
         exit;
-    }
-
-    public function pricee_log(mixed $message, string $level = 'INFO', string $file = 'main')
-    {
-        if (is_array($message) || is_object($message)) {
-            $message = print_r($message, true);
-        }
-
-        $log_dir = _PS_MODULE_DIR_.'pricee/logs/';
-
-        if (!file_exists($log_dir)) {
-            if (!mkdir($log_dir, 0755, true) && !is_dir($log_dir)) {
-                error_log("Failed to create log folder: {$log_dir}");
-
-                return;
-            }
-        }
-
-        $log_file = $log_dir.$file.'.log';
-
-        $time = date('Y-m-d H:i:s');
-
-        $line = "[{$time}] [{$level}] {$message}".PHP_EOL;
-
-        file_put_contents($log_file, $line, FILE_APPEND);
     }
 }

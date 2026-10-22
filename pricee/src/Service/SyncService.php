@@ -28,7 +28,7 @@ class SyncService
         try {
             $bearer = $this->apiService->getBearer($clientId, $apiKey);
             $websites = $this->apiService->getWebsites($bearer);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \PrestaShopLogger::addLog('Pricee sync: '.$e->getMessage(), 3);
 
             throw $e;
@@ -53,64 +53,67 @@ class SyncService
         }
 
         $syncedCount = 0;
-        foreach ($categories as $idCategory) {
-            if ($syncedCount >= self::MAX_PRODUCTS) {
-                break;
-            }
-            $this->iterateProductsByCategory(
-                (int) $idCategory,
-                $idLang,
-                function (\Product $product) use (
-                    &$context,
-                    &$bearer,
-                    &$websiteId,
-                    &$idLang,
-                    &$syncedCount
-                ) {
-                    // Get the internal PrestaShop product ID
-                    $productExtId = (string) $product->id;
+        $this->iterateProducts(
+            array_map('intval', $categories),
+            $idLang,
+            self::MAX_PRODUCTS,
+            function (\Product $product) use (
+                &$context,
+                &$bearer,
+                &$websiteId,
+                &$idLang,
+                &$syncedCount
+            ) {
+                // Get the internal PrestaShop product ID
+                $productExtId = (string) $product->id;
 
-                    $productUrl = $context->link->getProductLink(
-                        $product,
-                        null,
-                        null,
-                        (string) $idLang,
-                        $context->shop->id
+                $productUrl = $context->link->getProductLink(
+                    $product,
+                    null,
+                    null,
+                    (string) $idLang,
+                    $context->shop->id
+                );
+
+                try {
+                    $this->apiService->createOrUpdateProduct(
+                        $bearer,
+                        $websiteId,
+                        $productUrl,
+                        $productExtId,
                     );
-
-                    try {
-                        $this->apiService->createOrUpdateProduct(
-                            $bearer,
-                            $websiteId,
-                            $productUrl,
-                            $productExtId,
-                        );
-                    } catch (\Exception $e) {
-                        // ignore error for now and go to next product
-                    }
-
-                    ++$syncedCount;
+                } catch (\Exception $e) {
+                    // ignore error for now and go to next product
                 }
-            );
-        }
+
+                ++$syncedCount;
+            }
+        );
 
         return $syncedCount;
     }
 
-    private function iterateProductsByCategory(
-        int $idCategory,
+    private function iterateProducts(
+        array $idCategories,
         int $idLang,
+        int $limit,
         callable $callback,
         int $batchSize = 100
     ): void {
+        if ([] === $idCategories || $limit <= 0) {
+            return;
+        }
+
+        $idCategories = array_map('intval', $idCategories);
         $offset = 0;
+        $count = 0;
 
         do {
             $sql = '
-                SELECT cp.id_product
+                SELECT DISTINCT cp.id_product
                 FROM '._DB_PREFIX_.'category_product cp
                 INNER JOIN '._DB_PREFIX_.'product p ON p.id_product = cp.id_product
-                WHERE cp.id_category = '.(int) $idCategory.'
+                WHERE cp.id_category IN ('.implode(',', $idCategories).')
                 AND p.active = 1
                 ORDER BY cp.id_product
                 LIMIT '.(int) $batchSize.' OFFSET '.(int) $offset;
@@ -118,9 +121,14 @@ class SyncService
             $rows = \Db::getInstance()->executeS($sql);
 
             foreach ($rows as $row) {
+                if ($count >= $limit) {
+                    return;
+                }
+
                 $product = new \Product((int) $row['id_product'], false, $idLang);
 
                 $callback($product);
+                ++$count;
 
                 // free memory explicitly
                 unset($product);

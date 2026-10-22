@@ -36,6 +36,7 @@
         <div id="pricee-sync-result" class="mt-2 mb-4"></div>
 
         <input name="id_lang" type="hidden" value="{$id_lang}">
+        <input type="hidden" name="sync_token" value="{$sync_token}">
 
         {foreach from=$categories item=category}
             <div class="form-check">
