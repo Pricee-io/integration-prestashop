@@ -7,9 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Return a JSON error response instead of an HTTP 500 HTML page when the Pricee API authentication fails during product sync
-- Log the original API error message (status code and response body) in PrestaShop logs
-- Show the API error detail in the admin sync error message
+- Handle Pricee API errors during product sync: return a JSON error with the API detail and log it in PrestaShop logs instead of an HTTP 500
 
 ## [1.2.0] - 2026-10-19
 
