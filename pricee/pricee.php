@@ -243,6 +243,11 @@ class Pricee extends Module
         $form_values = $this->getConfigFormValues();
 
         foreach (array_keys($form_values) as $key) {
+            // Read-only display field, not real configuration to persist
+            if ('PRICEE_WEBHOOK_URL_DISPLAY' === $key) {
+                continue;
+            }
+
             $value = trim((string) Tools::getValue($key));
 
             // Password inputs are not repopulated by the form: an empty
