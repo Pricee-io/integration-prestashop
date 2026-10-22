@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Handle Pricee API errors during product sync: return a JSON error with the API detail and log it in PrestaShop logs instead of an HTTP 500
+- Fix API key being erased when re-saving the configuration form: password fields are never repopulated by PrestaShop, so an empty submitted key is now kept instead of overwriting the stored value, and submitted values are trimmed
 
 ## [1.2.0] - 2026-10-19
 

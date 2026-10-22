@@ -242,7 +242,15 @@ class Pricee extends Module
         $form_values = $this->getConfigFormValues();
 
         foreach (array_keys($form_values) as $key) {
-            Configuration::updateValue($key, Tools::getValue($key));
+            $value = trim((string) Tools::getValue($key));
+
+            // Password inputs are not repopulated by the form: an empty
+            // submitted value means "keep the stored one", not "erase it".
+            if ('' === $value && 'PRICEE_API_KEY' === $key) {
+                continue;
+            }
+
+            Configuration::updateValue($key, $value);
         }
     }
 
