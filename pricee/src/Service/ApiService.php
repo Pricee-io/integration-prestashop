@@ -22,7 +22,7 @@ class ApiService
         $this->httpClient = $httpClient;
     }
 
-    public function extracUuid(string $id): string
+    public function extractUuid(string $id): string
     {
         preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $id, $matches);
         $uuid = $matches[0] ?? null;
@@ -140,7 +140,7 @@ class ApiService
     ): void {
         // Check if product exists
         $queryParams = http_build_query([
-            'website' => $this->extracUuid($websiteId),
+            'website' => $this->extractUuid($websiteId),
             'extId' => $productExtId,
         ]);
 
