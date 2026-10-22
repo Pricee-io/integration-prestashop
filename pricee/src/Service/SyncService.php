@@ -29,7 +29,9 @@ class SyncService
             $bearer = $this->apiService->getBearer($clientId, $apiKey);
             $websites = $this->apiService->getWebsites($bearer);
         } catch (\Exception $e) {
-            throw new \Exception('Failed to authenticate with Pricee API');
+            \PrestaShopLogger::addLog('Pricee sync: '.$e->getMessage(), 3);
+
+            throw $e;
         }
 
         $normalizedWebsiteUrl = rtrim($websiteUrl, '/');

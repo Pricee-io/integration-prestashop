@@ -28,12 +28,20 @@ class SyncController extends FrameworkBundleAdminController
         $success = false;
 
         if (!empty($categories)) {
-            $syncedCount = $this->syncService->sync(
-                $websiteUrl,
-                (int) $idLang,
-                $categories
-            );
-            $success = true;
+            try {
+                $syncedCount = $this->syncService->sync(
+                    $websiteUrl,
+                    (int) $idLang,
+                    $categories
+                );
+                $success = true;
+            } catch (\Exception $e) {
+                return new JsonResponse([
+                    'success' => false,
+                    'synced' => 0,
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
         }
 
         return new JsonResponse([

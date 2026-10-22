@@ -83,6 +83,9 @@ document.getElementById('pricee-sync-form').addEventListener('submit', function(
         } else {
             result.className = 'alert alert-danger mt-2';
             result.innerText = '{l s="Erreur lors de la synchronisation" mod="pricee"}';
+            if (data.error) {
+                result.innerText += ' : ' + data.error;
+            }
         }
     })
     .catch(() => {
