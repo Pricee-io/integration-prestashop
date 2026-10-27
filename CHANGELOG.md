@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Reject replayed webhook payloads: every entry must carry a fresh signed timestamp and a nonce unused within the accepted window (both already sent by the app)
+- Validate received prices before writing them and update the active promotion (specific price) instead of the base price when one applies, so the effective price follows Pricee
+- Remove unused front office assets and the empty back office JavaScript file
+- Fix module description in composer.json (wrongly inherited from Sylius)
 - Add CSRF token validation to the sync endpoint
 - Harden sync: paginate the Pricee websites API, sync each product only once when categories overlap, and return JSON for all sync errors; webhook events now use PrestaShop logs instead of a web-accessible file
 

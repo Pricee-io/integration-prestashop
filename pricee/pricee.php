@@ -67,7 +67,6 @@ class Pricee extends Module
         include __DIR__.'/sql/install.php';
 
         return parent::install()
-            && $this->registerHook('header')
             && $this->registerHook('displayBackOfficeHeader');
     }
 
@@ -77,6 +76,7 @@ class Pricee extends Module
         Configuration::deleteByName('PRICEE_API_KEY');
         Configuration::deleteByName('PRICEE_WEBHOOK_ENABLED');
         Configuration::deleteByName('PRICEE_WEBHOOK_SECRET');
+        Configuration::deleteByName('PRICEE_WEBHOOK_NONCES');
 
         include __DIR__.'/sql/uninstall.php';
 
@@ -117,7 +117,6 @@ class Pricee extends Module
     public function hookDisplayBackOfficeHeader()
     {
         if (Tools::getValue('configure') == $this->name) {
-            $this->context->controller->addJS($this->_path.'views/js/back.js');
             $this->context->controller->addCSS($this->_path.'views/css/back.css');
         }
     }

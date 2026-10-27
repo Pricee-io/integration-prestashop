@@ -1,7 +1,7 @@
 {
   "name": "priceeio/integration-prestashop",
   "type": "prestashop-module",
-  "description": "Sylius integration with Pricee.io",
+  "description": "PrestaShop integration with Pricee.io",
   "require": {
     "php": ">=7.4"
   },
