@@ -42,3 +42,8 @@ Bump rules:
 - **Major** (`1.1.0` → `2.0.0`): breaking changes (PrestaShop compatibility drops, config/DB schema changes)
 
 Make the version bump its own commit, titled `Bump version to x.y.z`, separate from feature commits.
+
+Changelog rules (this is a PrestaShop module, so the changelog is read by merchants, not developers):
+
+- Only user-facing changes: what the module user sees or experiences in the back office or front office. Skip CI, tooling, Dependabot, static analysis and internal refactors.
+- One short line per change, no implementation details (no function names, no file paths, no "fix X by doing Y" narration).

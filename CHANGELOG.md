@@ -9,12 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.1] - 2026-10-30
 
-- Fix product URL generation during sync: build product links with the requested language and shop (getProductLink argument order), so URL updates sent to Pricee are correct in multilingual shops
-- Check the Pricee API lookup status before creating a product during sync, so an API error no longer falls through to a duplicate product creation
-- Update a product URL during sync only when it actually changed
-- Count only successfully synced products in the sync result and log per-product sync errors in PrestaShop logs
-- Fix PHPStan errors on PrestaShop 1.7.8 and 8.x (router service guard, ParameterBag::all usage)
-- Add a CI workflow that installs the module on each supported PrestaShop version (1.7.8, 8.2, 9.2) and runs PHPStan against each, plus Dependabot for weekly GitHub Actions updates
+- Fix product URLs sent during sync in multilingual shops (wrong language and shop were used when generating links)
+- Fix duplicate products created during sync when the Pricee API lookup fails
+- Update a product URL during sync only when it changed
+- Count only successfully synced products and log per-product sync errors in PrestaShop logs
 
 ## [1.3.0] - 2026-10-27
 
