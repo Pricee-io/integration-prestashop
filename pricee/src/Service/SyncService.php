@@ -71,8 +71,9 @@ class SyncService
                     $product,
                     null,
                     null,
-                    (string) $idLang,
-                    $context->shop->id
+                    null,
+                    (int) $idLang,
+                    (int) $context->shop->id
                 );
 
                 try {
