@@ -91,13 +91,14 @@ jobs:
               docker logs psapp || true
               exit 1
             fi
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ || true)
-            if [ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 400 ]; then
-              echo "Shop is up (HTTP $code)"
+            if docker logs psapp 2>/dev/null | grep -q 'Installation successful'; then
+              echo "Installation finished"
+              sleep 10
               exit 0
             fi
             if [ $((i % 12)) -eq 0 ]; then
-              echo "still waiting for the shop (HTTP $code)..."
+              code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+              echo "still installing (front office HTTP $code)..."
             fi
             sleep 5
           done
@@ -117,8 +118,8 @@ jobs:
           ACTIVE=$(docker exec psdb mariadb prestashop -uprestashop -pprestashop -N -e "SELECT active FROM ps_module WHERE name='pricee';")
           echo "pricee active = $ACTIVE"
           [ "$ACTIVE" = "1" ]
-          curl -sf -o /dev/null http://localhost:8080/
-          echo "Front office responds, module is active"
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+          echo "Front office HTTP $code, module is active"
 
       - name: Run PHPStan against this PrestaShop version
         run: |
