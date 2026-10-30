@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.3.1] - 2026-10-30
+
+- Fix product URL generation during sync: build product links with the requested language and shop (getProductLink argument order), so URL updates sent to Pricee are correct in multilingual shops
+- Check the Pricee API lookup status before creating a product during sync, so an API error no longer falls through to a duplicate product creation
+- Update a product URL during sync only when it actually changed
+- Count only successfully synced products in the sync result and log per-product sync errors in PrestaShop logs
+- Fix PHPStan errors on PrestaShop 1.7.8 and 8.x (router service guard, ParameterBag::all usage)
+- Add a CI workflow that installs the module on each supported PrestaShop version (1.7.8, 8.2, 9.2) and runs PHPStan against each, plus Dependabot for weekly GitHub Actions updates
+
 ## [1.3.0] - 2026-10-27
 
 - Reject replayed webhook payloads: every entry must carry a fresh signed timestamp and a nonce unused within the accepted window (both already sent by the app)
