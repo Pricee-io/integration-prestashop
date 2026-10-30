@@ -1,0 +1,118 @@
+name: PrestaShop compatibility
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  install-and-analyze:
+    name: PS ${{ matrix.ps }} - install module + PHPStan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Lowest supported version (ps_versions_compliancy min)
+          - ps: '1.7.8.11'
+            db: 'mariadb:10.6'
+          # Mid-range 8.x
+          - ps: '8.2.1'
+            db: 'mariadb:10.11'
+          # Latest supported version (ps_versions_compliancy max)
+          - ps: '9.2.0-apache'
+            db: 'mariadb:11.4'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build dev image (used to run PHPStan)
+        uses: docker/build-push-action@v7
+        with:
+          file: Dockerfile.dev
+          tags: pricee-dev
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start database
+        run: |
+          docker network create psnet
+          docker run -d --name psdb --network psnet \
+            -e MARIADB_DATABASE=prestashop \
+            -e MARIADB_USER=prestashop \
+            -e MARIADB_PASSWORD=prestashop \
+            -e MARIADB_ROOT_PASSWORD=root \
+            ${{ matrix.db }}
+          for i in $(seq 1 60); do
+            if docker exec psdb mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent; then
+              echo "Database is up"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs psdb || true
+          exit 1
+        timeout-minutes: 6
+
+      - name: Start PrestaShop and auto-install the shop
+        run: |
+          docker volume create psweb
+          docker run -d --name psapp --network psnet -p 8080:80 -v psweb:/var/www/html \
+            -e PS_INSTALL_AUTO=1 \
+            -e PS_DOMAIN=localhost:8080 \
+            -e PS_LANGUAGE=en \
+            -e PS_COUNTRY=US \
+            -e PS_FOLDER_ADMIN=admin \
+            -e ADMIN_MAIL=admin@example.com \
+            -e ADMIN_PASSWD=prestashop_demo \
+            -e DB_SERVER=psdb \
+            -e DB_NAME=prestashop \
+            -e DB_USER=prestashop \
+            -e DB_PASSWD=prestashop \
+            -e DB_PREFIX=ps_ \
+            prestashop/prestashop:${{ matrix.ps }}
+
+      - name: Wait for installation to finish
+        run: |
+          for i in $(seq 1 120); do
+            if curl -sf -o /dev/null http://localhost:8080/; then
+              echo "Shop is up"
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs psapp || true
+          exit 1
+        timeout-minutes: 12
+
+      - name: Install the module
+        run: |
+          docker cp pricee psapp:/var/www/html/modules/pricee
+          docker exec psapp php bin/console prestashop:module install pricee
+          docker exec psapp php bin/console prestashop:module enable pricee || true
+
+      - name: Check the module is installed and active
+        run: |
+          ACTIVE=$(docker exec psdb mariadb prestashop -uprestashop -pprestashop -N -e "SELECT active FROM ps_module WHERE name='pricee';")
+          echo "pricee active = $ACTIVE"
+          [ "$ACTIVE" = "1" ]
+          curl -sf -o /dev/null http://localhost:8080/
+          echo "Front office responds, module is active"
+
+      - name: Run PHPStan against this PrestaShop version
+        run: |
+          docker run --rm -v "$PWD":/app -w /app \
+            -v psweb:/var/www/html \
+            -e _PS_ROOT_DIR_=/var/www/html \
+            pricee-dev php vendor/bin/phpstan analyse --error-format=github --memory-limit=1G --no-progress
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f psapp psdb || true
+          docker volume rm psweb || true
+          docker network rm psnet || true
