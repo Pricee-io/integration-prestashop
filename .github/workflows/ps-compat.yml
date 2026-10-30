@@ -87,18 +87,26 @@ jobs:
         run: |
           for i in $(seq 1 240); do
             if ! docker ps --format '{{.Names}}' | grep -q '^psapp$'; then
-              echo "psapp container exited during install"
-              docker logs psapp || true
-              exit 1
+              # Some images (e.g. 9.2) exit right after a successful install:
+              # the entrypoint runs "rm -r install/" but the installer already
+              # removed it. Restarting skips the install block (parameters
+              # file present) and starts the web server.
+              if docker logs psapp 2>/dev/null | grep -q 'Installation successful'; then
+                echo "Install done, restarting container to start the web server"
+                docker start psapp
+              else
+                echo "psapp container exited during install"
+                docker logs psapp || true
+                exit 1
+              fi
             fi
-            if docker logs psapp 2>/dev/null | grep -q 'Installation successful'; then
-              echo "Installation finished"
-              sleep 10
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+            if [ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 400 ]; then
+              echo "Shop is up (HTTP $code)"
               exit 0
             fi
             if [ $((i % 12)) -eq 0 ]; then
-              code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
-              echo "still installing (front office HTTP $code)..."
+              echo "still waiting (front office HTTP $code)..."
             fi
             sleep 5
           done
