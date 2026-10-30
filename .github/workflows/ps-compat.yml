@@ -42,6 +42,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Install PHP dependencies (root, needed by PHPStan)
+        run: docker run --rm -v "$PWD":/app -w /app pricee-dev composer install --no-interaction
+
       - name: Start database
         run: |
           docker network create psnet
@@ -95,6 +98,7 @@ jobs:
 
       - name: Install the module
         run: |
+          docker run --rm -v "$PWD":/app -w /app/pricee pricee-dev composer dump-autoload
           docker cp pricee psapp:/var/www/html/modules/pricee
           docker exec psapp php bin/console prestashop:module install pricee
           docker exec psapp php bin/console prestashop:module enable pricee || true
