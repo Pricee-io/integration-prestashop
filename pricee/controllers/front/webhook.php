@@ -53,12 +53,12 @@ class PriceeWebhookModuleFrontController extends ModuleFrontController
 
         // Process products
         foreach ($data as $productData) {
-            if (empty($productData['extId']) || !isset($productData['bestPriceAmount'])) {
+            if (!isset($productData['bestPriceAmount'])) {
                 continue;
             }
 
-            $product = new Product((int) $productData['extId']);
-            if (!Validate::isLoadedObject($product)) {
+            $product = $this->resolveProduct($productData);
+            if (null === $product) {
                 continue;
             }
 
@@ -187,6 +187,68 @@ class PriceeWebhookModuleFrontController extends ModuleFrontController
         }
 
         return $validNonces;
+    }
+
+    /**
+     * Resolve the product targeted by a webhook entry: prefer the stable
+     * extId (sent for products synced with one), and fall back to the
+     * product URL for products synced before extId existed.
+     *
+     * @param array<string, mixed> $productData
+     */
+    private function resolveProduct(array $productData): ?Product
+    {
+        if (!empty($productData['extId']) && is_numeric($productData['extId'])) {
+            $product = new Product((int) $productData['extId']);
+            if (Validate::isLoadedObject($product)) {
+                return $product;
+            }
+        }
+
+        $url = $productData['url'] ?? null;
+        if (!is_string($url) || '' === $url) {
+            return null;
+        }
+
+        $idProduct = $this->extractProductIdFromUrl($url);
+        if (null === $idProduct) {
+            return null;
+        }
+
+        $product = new Product($idProduct);
+
+        return Validate::isLoadedObject($product) ? $product : null;
+    }
+
+    /**
+     * Extract the product ID from a PrestaShop product URL, either from the
+     * id_product query parameter or from the last path segment
+     * (<id>-<rewrite>.html or <rewrite>-<id>.html).
+     */
+    private function extractProductIdFromUrl(string $url): ?int
+    {
+        if (preg_match('/[?&]id_product=(\d+)/', $url, $matches)) {
+            return (int) $matches[1];
+        }
+
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $segments = array_values(array_filter(
+            explode('/', trim($path, '/')),
+            static fn (string $segment): bool => '' !== $segment
+        ));
+        if ([] === $segments) {
+            return null;
+        }
+
+        $last = rawurldecode((string) end($segments));
+        if (preg_match('/^(\d+)-.+\.html$/i', $last, $matches)) {
+            return (int) $matches[1];
+        }
+        if (preg_match('/^.+-(\d+)\.html$/i', $last, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
     }
 
     /**

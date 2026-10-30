@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fix webhook price updates never being applied: match products by external ID when present, with a fallback to the product URL
+
 ## [1.3.2] - 2026-10-30
 
 - Adopt products synced before external IDs existed during sync instead of creating duplicates

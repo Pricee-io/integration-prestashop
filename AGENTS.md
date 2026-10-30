@@ -47,3 +47,9 @@ Changelog rules (this is a PrestaShop module, so the changelog is read by mercha
 
 - Only user-facing changes: what the module user sees or experiences in the back office or front office. Skip CI, tooling, Dependabot, static analysis and internal refactors.
 - One short line per change, no implementation details (no function names, no file paths, no "fix X by doing Y" narration).
+
+## Webhook contract
+
+The price-update webhook is received by `pricee/controllers/front/webhook.php` (module front controller `webhook`). The payload is a JSON array of entries signed with HMAC-SHA256 over the **raw request body** using the webhook secret (`X-Signature` header). Each entry carries `url`, `extId` (optional: the shop's internal product ID, null for products synced before external IDs existed), `bestPriceAmount`, `bestPriceCurrency`, `timestamp` and `nonce`; entries with a missing/stale timestamp or an already-used nonce are rejected (replay protection). Products are matched by `extId` when present, with a fallback to the product URL.
+
+Any change to this format is a cross-repo contract: the sender lives in `../app/src/Service/WebhookService.php` and the WooCommerce/Sylius integrations validate the same signature, keep changes backward compatible or coordinate all of them.
