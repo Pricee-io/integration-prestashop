@@ -132,48 +132,47 @@ class ApiService
         }
     }
 
+    /**
+     * Create a product, or update it when it already exists.
+     *
+     * The product is matched by website + extId (the internal shop product
+     * ID, which stays stable when the URL changes). Products synced before
+     * extId existed are adopted via a fallback lookup by URL, and get their
+     * extId set so later syncs match them directly.
+     */
     public function createOrUpdateProduct(
         string $bearer,
         string $websiteId,
         string $productUrl,
         string $productExtId
     ): void {
-        // Check if product exists
-        $queryParams = http_build_query([
-            'website' => $this->extractUuid($websiteId),
-            'extId' => $productExtId,
-        ]);
+        $websiteUuid = $this->extractUuid($websiteId);
 
         try {
-            $response = $this->httpClient->request('GET', self::BASE_URL.'website_products?'.$queryParams, [
-                'headers' => [
-                    'Authorization' => 'Bearer '.$bearer,
-                ],
-            ]);
-
-            if (200 !== $response->getStatusCode()) {
-                throw new \RuntimeException(sprintf(
-                    'Failed to lookup product. Status: %d. Response: %s',
-                    $response->getStatusCode(),
-                    $response->getContent(false)
-                ));
+            $products = $this->lookupProducts($bearer, $websiteUuid, 'extId', $productExtId);
+            if (empty($products)) {
+                $products = $this->lookupProducts($bearer, $websiteUuid, 'url', $productUrl);
             }
 
-            $products = $response->toArray(false)['member'] ?? [];
             if (!empty($products)) {
-                // Product exists: update its url only when it changed
-                $existingUrl = rtrim((string) ($products[0]['url'] ?? ''), '/');
-                if ($existingUrl !== rtrim($productUrl, '/')) {
-                    $existingProductId = $products[0]['id'];
+                // Product exists: update its url only when it changed, and
+                // set extId when adopting a product synced without one
+                $existing = $products[0];
+                $patch = [];
+                if (rtrim((string) ($existing['url'] ?? ''), '/') !== rtrim($productUrl, '/')) {
+                    $patch['url'] = $productUrl;
+                }
+                if (($existing['extId'] ?? null) !== $productExtId) {
+                    $patch['extId'] = $productExtId;
+                }
 
-                    $updateResponse = $this->httpClient->request('PATCH', self::BASE_URL.'website_products/'.$existingProductId, [
+                if (!empty($patch)) {
+                    $updateResponse = $this->httpClient->request('PATCH', self::BASE_URL.'website_products/'.$existing['id'], [
                         'headers' => [
                             'Content-Type' => 'application/merge-patch+json',
                             'Authorization' => 'Bearer '.$bearer,
                         ],
-                        'json' => [
-                            'url' => $productUrl,
-                        ],
+                        'json' => $patch,
                     ]);
 
                     if (200 !== $updateResponse->getStatusCode()) {
@@ -210,5 +209,36 @@ class ApiService
         } catch (ClientExceptionInterface|TransportExceptionInterface $e) {
             throw new \RuntimeException('Failed to create/update product: '.$e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * Look up website products of a website matching a filter (extId or url).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function lookupProducts(string $bearer, string $websiteUuid, string $filterKey, string $filterValue): array
+    {
+        $queryParams = http_build_query([
+            'website' => $websiteUuid,
+            $filterKey => $filterValue,
+        ]);
+
+        $response = $this->httpClient->request('GET', self::BASE_URL.'website_products?'.$queryParams, [
+            'headers' => [
+                'Authorization' => 'Bearer '.$bearer,
+            ],
+        ]);
+
+        if (200 !== $response->getStatusCode()) {
+            throw new \RuntimeException(sprintf(
+                'Failed to lookup product. Status: %d. Response: %s',
+                $response->getStatusCode(),
+                $response->getContent(false)
+            ));
+        }
+
+        $products = $response->toArray(false)['member'] ?? [];
+
+        return is_array($products) ? $products : [];
     }
 }

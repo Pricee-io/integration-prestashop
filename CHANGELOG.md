@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix product URLs sent during sync in multilingual shops (wrong language and shop were used when generating links)
 - Fix duplicate products created during sync when the Pricee API lookup fails
-- Update a product URL during sync only when it changed
+- Update a product URL during sync only when it changed, and adopt products synced before external IDs existed instead of duplicating them
 - Count only successfully synced products and log per-product sync errors in PrestaShop logs
 
 ## [1.3.0] - 2026-10-27
