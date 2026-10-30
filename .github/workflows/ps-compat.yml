@@ -91,11 +91,13 @@ jobs:
               docker logs psapp || true
               exit 1
             fi
-            # settings.inc.php on 1.7.x, app/config/parameters.php on 8.x/9.x
-            if docker exec psapp sh -c "test -f /var/www/html/config/settings.inc.php || test -f /var/www/html/app/config/parameters.php" \
-              && curl -sf -o /dev/null http://localhost:8080/; then
-              echo "Shop is up"
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ || true)
+            if [ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 400 ]; then
+              echo "Shop is up (HTTP $code)"
               exit 0
+            fi
+            if [ $((i % 12)) -eq 0 ]; then
+              echo "still waiting for the shop (HTTP $code)..."
             fi
             sleep 5
           done
