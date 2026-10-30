@@ -29,9 +29,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build dev image (used to run PHPStan)
         uses: docker/build-push-action@v7
         with:
+          context: .
           file: Dockerfile.dev
           tags: pricee-dev
           load: true
