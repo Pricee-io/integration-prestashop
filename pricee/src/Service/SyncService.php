@@ -82,11 +82,15 @@ class SyncService
                         $productUrl,
                         $productExtId,
                     );
-                } catch (\Exception $e) {
-                    // ignore error for now and go to next product
-                }
 
-                ++$syncedCount;
+                    ++$syncedCount;
+                } catch (\Exception $e) {
+                    // log the error and go to the next product
+                    \PrestaShopLogger::addLog(
+                        'Pricee sync: failed to sync product ID '.$product->id.': '.$e->getMessage(),
+                        3
+                    );
+                }
             }
         );
 

@@ -151,27 +151,38 @@ class ApiService
                 ],
             ]);
 
-            $products = $response->toArray(false)['member'];
+            if (200 !== $response->getStatusCode()) {
+                throw new \RuntimeException(sprintf(
+                    'Failed to lookup product. Status: %d. Response: %s',
+                    $response->getStatusCode(),
+                    $response->getContent(false)
+                ));
+            }
+
+            $products = $response->toArray(false)['member'] ?? [];
             if (!empty($products)) {
-                // Product exists: update it
-                $existingProductId = $products[0]['id'];
+                // Product exists: update its url only when it changed
+                $existingUrl = rtrim((string) ($products[0]['url'] ?? ''), '/');
+                if ($existingUrl !== rtrim($productUrl, '/')) {
+                    $existingProductId = $products[0]['id'];
 
-                $updateResponse = $this->httpClient->request('PATCH', self::BASE_URL.'website_products/'.$existingProductId, [
-                    'headers' => [
-                        'Content-Type' => 'application/merge-patch+json',
-                        'Authorization' => 'Bearer '.$bearer,
-                    ],
-                    'json' => [
-                        'url' => $productUrl,
-                    ],
-                ]);
+                    $updateResponse = $this->httpClient->request('PATCH', self::BASE_URL.'website_products/'.$existingProductId, [
+                        'headers' => [
+                            'Content-Type' => 'application/merge-patch+json',
+                            'Authorization' => 'Bearer '.$bearer,
+                        ],
+                        'json' => [
+                            'url' => $productUrl,
+                        ],
+                    ]);
 
-                if (200 !== $updateResponse->getStatusCode()) {
-                    throw new \RuntimeException(sprintf(
-                        'Failed to update product. Status: %d. Response: %s',
-                        $updateResponse->getStatusCode(),
-                        $updateResponse->getContent(false)
-                    ));
+                    if (200 !== $updateResponse->getStatusCode()) {
+                        throw new \RuntimeException(sprintf(
+                            'Failed to update product. Status: %d. Response: %s',
+                            $updateResponse->getStatusCode(),
+                            $updateResponse->getContent(false)
+                        ));
+                    }
                 }
 
                 return;
