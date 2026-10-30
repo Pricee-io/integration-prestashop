@@ -32,7 +32,7 @@ class SyncController extends FrameworkBundleAdminController
 
         $websiteUrl = $request->getSchemeAndHttpHost();
         $idLang = $request->request->get('id_lang');
-        $categories = $request->request->all('categories');
+        $categories = $request->request->all()['categories'] ?? [];
         $syncedCount = 0;
         $success = false;
 

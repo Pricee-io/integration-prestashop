@@ -10,7 +10,7 @@ jobs:
   install-and-analyze:
     name: PS ${{ matrix.ps }} - install module + PHPStan
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -85,8 +85,15 @@ jobs:
 
       - name: Wait for installation to finish
         run: |
-          for i in $(seq 1 120); do
-            if curl -sf -o /dev/null http://localhost:8080/; then
+          for i in $(seq 1 240); do
+            if ! docker ps --format '{{.Names}}' | grep -q '^psapp$'; then
+              echo "psapp container exited during install"
+              docker logs psapp || true
+              exit 1
+            fi
+            # settings.inc.php on 1.7.x, app/config/parameters.php on 8.x/9.x
+            if docker exec psapp sh -c "test -f /var/www/html/config/settings.inc.php || test -f /var/www/html/app/config/parameters.php" \
+              && curl -sf -o /dev/null http://localhost:8080/; then
               echo "Shop is up"
               exit 0
             fi
@@ -94,7 +101,7 @@ jobs:
           done
           docker logs psapp || true
           exit 1
-        timeout-minutes: 12
+        timeout-minutes: 25
 
       - name: Install the module
         run: |

@@ -24,6 +24,8 @@
  *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  *  International Registered Trademark & Property of PrestaShop SA
  */
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+
 if (!defined('_PS_VERSION_')) {
     exit;
 }
@@ -93,7 +95,10 @@ class Pricee extends Module
             $this->postProcess();
         }
 
-        $ajaxSyncLink = $this->get('router')->generate('priceeio_sync_admin');
+        $router = $this->get('router');
+        $ajaxSyncLink = $router instanceof UrlGeneratorInterface
+            ? $router->generate('priceeio_sync_admin')
+            : '';
         $this->context->smarty->assign([
             'module_dir' => $this->_path,
             'id_lang' => $this->context->language->id,
