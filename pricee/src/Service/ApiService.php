@@ -10,7 +10,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class ApiService
 {
-    private const BASE_URL = 'https://app.pricee.io/api/v1/';
+    private const DEFAULT_BASE_URL = 'https://app.pricee.io/api/v1/';
     private const API_PAGE_SIZE = 30;
     private const MAX_WEBSITE_PAGES = 20;
 
@@ -36,7 +36,7 @@ class ApiService
     public function getBearer(string $clientId, string $apiKey): string
     {
         try {
-            $response = $this->httpClient->request('POST', self::BASE_URL.'login', [
+            $response = $this->httpClient->request('POST', $this->baseUrl().'login', [
                 'headers' => [
                     'Content-Type' => 'application/json',
                     'X-CLIENT-ID' => $clientId,
@@ -73,7 +73,7 @@ class ApiService
 
         try {
             do {
-                $response = $this->httpClient->request('GET', self::BASE_URL.'websites?page='.$page, [
+                $response = $this->httpClient->request('GET', $this->baseUrl().'websites?page='.$page, [
                     'headers' => [
                         'Content-Type' => 'application/json',
                         'Authorization' => 'Bearer '.$bearer,
@@ -106,7 +106,7 @@ class ApiService
     public function createWebsite(string $bearer, string $url): array
     {
         try {
-            $response = $this->httpClient->request('POST', self::BASE_URL.'websites', [
+            $response = $this->httpClient->request('POST', $this->baseUrl().'websites', [
                 'headers' => [
                     'Content-Type' => 'application/ld+json',
                     'Authorization' => 'Bearer '.$bearer,
@@ -167,7 +167,7 @@ class ApiService
                 }
 
                 if (!empty($patch)) {
-                    $updateResponse = $this->httpClient->request('PATCH', self::BASE_URL.'website_products/'.$existing['id'], [
+                    $updateResponse = $this->httpClient->request('PATCH', $this->baseUrl().'website_products/'.$existing['id'], [
                         'headers' => [
                             'Content-Type' => 'application/merge-patch+json',
                             'Authorization' => 'Bearer '.$bearer,
@@ -188,7 +188,7 @@ class ApiService
             }
 
             // Product does not exist: create it
-            $createResponse = $this->httpClient->request('POST', self::BASE_URL.'website_products', [
+            $createResponse = $this->httpClient->request('POST', $this->baseUrl().'website_products', [
                 'headers' => [
                     'Content-Type' => 'application/ld+json',
                     'Authorization' => 'Bearer '.$bearer,
@@ -212,6 +212,17 @@ class ApiService
     }
 
     /**
+     * API base URL, overridable via the PRICEE_API_BASE_URL env var
+     * (used to sync against a local instance of the app).
+     */
+    private function baseUrl(): string
+    {
+        $baseUrl = getenv('PRICEE_API_BASE_URL');
+
+        return is_string($baseUrl) && '' !== $baseUrl ? rtrim($baseUrl, '/').'/' : self::DEFAULT_BASE_URL;
+    }
+
+    /**
      * Look up website products of a website matching a filter (extId or url).
      *
      * @return array<int, array<string, mixed>>
@@ -223,7 +234,7 @@ class ApiService
             $filterKey => $filterValue,
         ]);
 
-        $response = $this->httpClient->request('GET', self::BASE_URL.'website_products?'.$queryParams, [
+        $response = $this->httpClient->request('GET', $this->baseUrl().'website_products?'.$queryParams, [
             'headers' => [
                 'Authorization' => 'Bearer '.$bearer,
             ],

@@ -68,9 +68,9 @@ jobs:
       - name: Start PrestaShop and auto-install the shop
         run: |
           docker volume create psweb
-          docker run -d --name psapp --network psnet -p 8080:80 -v psweb:/var/www/html \
+          docker run -d --name psapp --network psnet -p 8081:80 -v psweb:/var/www/html \
             -e PS_INSTALL_AUTO=1 \
-            -e PS_DOMAIN=localhost:8080 \
+            -e PS_DOMAIN=localhost:8081 \
             -e PS_LANGUAGE=en \
             -e PS_COUNTRY=US \
             -e PS_FOLDER_ADMIN=admin \
@@ -100,7 +100,7 @@ jobs:
                 exit 1
               fi
             fi
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/ || true)
             if [ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 400 ]; then
               echo "Shop is up (HTTP $code)"
               exit 0
@@ -126,7 +126,7 @@ jobs:
           ACTIVE=$(docker exec psdb mariadb prestashop -uprestashop -pprestashop -N -e "SELECT active FROM ps_module WHERE name='pricee';")
           echo "pricee active = $ACTIVE"
           [ "$ACTIVE" = "1" ]
-          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/ || true)
           echo "Front office HTTP $code, module is active"
 
       - name: Run PHPStan against this PrestaShop version
