@@ -67,14 +67,31 @@ class SyncService
                 // Get the internal PrestaShop product ID
                 $productExtId = (string) $product->id;
 
+                $idShop = (int) $context->shop->id;
+                $forceRoutes = (bool) \Configuration::get('PS_REWRITING_SETTINGS', null, null, $idShop);
+
                 $productUrl = $context->link->getProductLink(
                     $product,
                     null,
                     null,
                     null,
                     (int) $idLang,
-                    (int) $context->shop->id
+                    $idShop,
+                    null,
+                    $forceRoutes
                 );
+
+                // In back-office requests the dispatcher can fall back to the
+                // legacy "product_rule" URL, which is not a valid front-office
+                // route: rewrite it to the standard product URL
+                $normalizedUrl = preg_replace(
+                    '#^(.*index\.php)\?controller=product_rule&id=(\d+).*$#',
+                    '$1?controller=product&id_product=$2',
+                    $productUrl
+                );
+                if (is_string($normalizedUrl)) {
+                    $productUrl = $normalizedUrl;
+                }
 
                 try {
                     $this->apiService->createOrUpdateProduct(
