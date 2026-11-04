@@ -273,6 +273,11 @@ class Pricee extends Module
         $rawCategories = Category::getCategories($id_lang, false, true);
         $categories = [];
 
+        // Every product is associated with its default category, which is the
+        // shop home category by default: selecting it would sync the whole
+        // catalog, so it is not offered like the global root (id=1)
+        $homeCategoryId = (int) $this->context->shop->id_category;
+
         foreach ($rawCategories as $levelArray) {
             foreach ($levelArray as $catData) {
                 if (!isset($catData['infos']['id_category'])) {
@@ -280,8 +285,8 @@ class Pricee extends Module
                 }
 
                 $catId = (int) $catData['infos']['id_category'];
-                // Skip root category (id=1)
-                if ($catId <= 1) {
+                // Skip root category (id=1) and the shop home category
+                if ($catId <= 1 || $catId === $homeCategoryId) {
                     continue;
                 }
 

@@ -53,8 +53,10 @@ class SyncService
         }
 
         $syncedCount = 0;
+        $idShop = (int) $context->shop->id;
         $this->iterateProducts(
             array_map('intval', $categories),
+            $idShop,
             $idLang,
             self::MAX_PRODUCTS,
             function (\Product $product) use (
@@ -62,12 +64,12 @@ class SyncService
                 &$bearer,
                 &$websiteId,
                 &$idLang,
+                &$idShop,
                 &$syncedCount
             ) {
                 // Get the internal PrestaShop product ID
                 $productExtId = (string) $product->id;
 
-                $idShop = (int) $context->shop->id;
                 $forceRoutes = (bool) \Configuration::get('PS_REWRITING_SETTINGS', null, null, $idShop);
 
                 $productUrl = $context->link->getProductLink(
@@ -117,6 +119,7 @@ class SyncService
 
     private function iterateProducts(
         array $idCategories,
+        int $idShop,
         int $idLang,
         int $limit,
         callable $callback,
@@ -131,12 +134,18 @@ class SyncService
         $count = 0;
 
         do {
+            // Scope to the current shop: category_product is not shop-specific
+            // and product.active is the global flag, so without the product_shop
+            // join a multistore sync would also pick up products that belong to
+            // other shops or are disabled in the current one
             $sql = '
                 SELECT DISTINCT cp.id_product
                 FROM '._DB_PREFIX_.'category_product cp
                 INNER JOIN '._DB_PREFIX_.'product p ON p.id_product = cp.id_product
+                INNER JOIN '._DB_PREFIX_.'product_shop ps ON ps.id_product = p.id_product AND ps.id_shop = '.(int) $idShop.'
                 WHERE cp.id_category IN ('.implode(',', $idCategories).')
                 AND p.active = 1
+                AND ps.active = 1
                 ORDER BY cp.id_product
                 LIMIT '.(int) $batchSize.' OFFSET '.(int) $offset;
 
