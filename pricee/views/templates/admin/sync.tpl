@@ -38,16 +38,33 @@
         <input name="id_lang" type="hidden" value="{$id_lang}">
         <input type="hidden" name="sync_token" value="{$sync_token}">
 
-        {foreach from=$categories item=category}
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox"
-                    name="categories[]"
-                    value="{$category.id_category}"
-                    id="category-{$category.id_category}">
-                <label class="form-check-label{if !$category.active} text-muted{/if}" for="category-{$category.id_category}">
-                    {$category.name} ({$category.product_count}){if !$category.active} — {l s='désactivée' mod='pricee'}{/if}
-                </label>
+        {if $shops|@count > 1}
+            <div class="form-group">
+                <label for="pricee-sync-shop">{l s='Boutique à synchroniser' mod='pricee'}</label>
+                <select id="pricee-sync-shop" name="id_shop" class="form-control">
+                    {foreach from=$shops item=shop}
+                        <option value="{$shop.id_shop}"{if $shop.id_shop == $current_shop_id} selected{/if}>{$shop.name|escape:'html':'UTF-8'}</option>
+                    {/foreach}
+                </select>
             </div>
+        {else}
+            <input type="hidden" name="id_shop" value="{$current_shop_id}">
+        {/if}
+
+        {foreach from=$shops item=shop}
+            <fieldset class="pricee-sync-categories{if $shop.id_shop != $current_shop_id} d-none{/if}" data-shop="{$shop.id_shop}"{if $shop.id_shop != $current_shop_id} disabled{/if}>
+                {foreach from=$shop.categories item=category}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                            name="categories[]"
+                            value="{$category.id_category}"
+                            id="category-{$shop.id_shop}-{$category.id_category}">
+                        <label class="form-check-label{if !$category.active} text-muted{/if}" for="category-{$shop.id_shop}-{$category.id_category}">
+                            {$category.name|escape:'html':'UTF-8'} ({$category.product_count}){if !$category.active} — {l s='désactivée' mod='pricee'}{/if}
+                        </label>
+                    </div>
+                {/foreach}
+            </fieldset>
         {/foreach}
 
         <button type="submit" class="btn btn-primary mt-4">{l s='Synchroniser les produits' mod='pricee'}</button>
@@ -55,6 +72,18 @@
 </div>
 
 <script>
+// Only the categories of the selected shop are shown and submitted
+var priceeShopSelect = document.getElementById('pricee-sync-shop');
+if (priceeShopSelect) {
+    priceeShopSelect.addEventListener('change', function(e) {
+        document.querySelectorAll('.pricee-sync-categories').forEach(function(fieldset) {
+            var selected = fieldset.dataset.shop === e.target.value;
+            fieldset.classList.toggle('d-none', !selected);
+            fieldset.disabled = !selected;
+        });
+    });
+}
+
 document.getElementById('pricee-sync-form').addEventListener('submit', function(e) {
     e.preventDefault();
 

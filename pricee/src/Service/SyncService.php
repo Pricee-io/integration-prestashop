@@ -16,30 +16,38 @@ class SyncService
     }
 
     /**
+     * Sync the given categories of a single shop.
+     *
      * @param array<int> $categories
      */
-    public function sync(string $websiteUrl, int $idLang, array $categories): int
+    public function sync(int $idShop, int $idLang, array $categories): int
     {
         $context = \Context::getContext();
 
-        $clientId = (string) \Configuration::get('PRICEE_CLIENT_ID');
-        $apiKey = (string) \Configuration::get('PRICEE_API_KEY');
+        // Credentials can be configured per shop: read them for the shop
+        // being synced, with the usual fallback to group/global values
+        $clientId = (string) \Configuration::get('PRICEE_CLIENT_ID', null, null, $idShop);
+        $apiKey = (string) \Configuration::get('PRICEE_API_KEY', null, null, $idShop);
 
         try {
             $bearer = $this->apiService->getBearer($clientId, $apiKey);
             $websites = $this->apiService->getWebsites($bearer);
         } catch (\Throwable $e) {
-            \PrestaShopLogger::addLog('Pricee sync: '.$e->getMessage(), 3);
+            \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
 
             throw $e;
         }
 
-        $normalizedWebsiteUrl = rtrim($websiteUrl, '/');
+        // In multistore each shop can have its own domain, so the website
+        // registered on Pricee must be the shop front URL, not the host of
+        // the back-office request
+        $normalizedWebsiteUrl = rtrim($this->getShopWebsiteUrl($idShop), '/');
         $websiteId = null;
 
-        // Look for existing website
+        // Look for existing website, whatever the scheme it was registered with
+        $websiteKey = $this->websiteKey($normalizedWebsiteUrl);
         foreach ($websites as $w) {
-            if (rtrim($w['url'], '/') === $normalizedWebsiteUrl) {
+            if ($this->websiteKey((string) $w['url']) === $websiteKey) {
                 $websiteId = $w['@id'];
 
                 break;
@@ -53,18 +61,17 @@ class SyncService
         }
 
         $syncedCount = 0;
-        $idShop = (int) $context->shop->id;
         $this->iterateProducts(
             array_map('intval', $categories),
             $idShop,
             $idLang,
             self::MAX_PRODUCTS,
             function (\Product $product) use (
-                &$context,
+                $context,
                 &$bearer,
                 &$websiteId,
-                &$idLang,
-                &$idShop,
+                $idLang,
+                $idShop,
                 &$syncedCount
             ) {
                 // Get the internal PrestaShop product ID
@@ -117,6 +124,35 @@ class SyncService
         return $syncedCount;
     }
 
+    /**
+     * FROM/WHERE clause of the products a shop sells, joined to their
+     * categories: category_product is not shop-specific, and product_shop
+     * holds the shop's own active flag (product.active is the default
+     * shop's), so a multistore sync never takes another shop's products.
+     */
+    public static function shopProductsSql(int $idShop): string
+    {
+        return _DB_PREFIX_.'category_product cp
+            INNER JOIN '._DB_PREFIX_.'product_shop ps ON ps.id_product = cp.id_product AND ps.id_shop = '.(int) $idShop.'
+            WHERE ps.active = 1';
+    }
+
+    /**
+     * Front URL of a shop (its own domain and base URI), in https when SSL is
+     * enabled whatever the protocol of the back-office request.
+     */
+    private function getShopWebsiteUrl(int $idShop): string
+    {
+        $ssl = (bool) \Configuration::get('PS_SSL_ENABLED', null, null, $idShop);
+
+        return \Context::getContext()->link->getBaseLink($idShop, $ssl);
+    }
+
+    private function websiteKey(string $url): string
+    {
+        return strtolower((string) preg_replace('#^https?://#i', '', rtrim($url, '/')));
+    }
+
     private function iterateProducts(
         array $idCategories,
         int $idShop,
@@ -134,18 +170,10 @@ class SyncService
         $count = 0;
 
         do {
-            // Scope to the current shop: category_product is not shop-specific
-            // and product.active is the global flag, so without the product_shop
-            // join a multistore sync would also pick up products that belong to
-            // other shops or are disabled in the current one
             $sql = '
                 SELECT DISTINCT cp.id_product
-                FROM '._DB_PREFIX_.'category_product cp
-                INNER JOIN '._DB_PREFIX_.'product p ON p.id_product = cp.id_product
-                INNER JOIN '._DB_PREFIX_.'product_shop ps ON ps.id_product = p.id_product AND ps.id_shop = '.(int) $idShop.'
-                WHERE cp.id_category IN ('.implode(',', $idCategories).')
-                AND p.active = 1
-                AND ps.active = 1
+                FROM '.self::shopProductsSql($idShop).'
+                AND cp.id_category IN ('.implode(',', $idCategories).')
                 ORDER BY cp.id_product
                 LIMIT '.(int) $batchSize.' OFFSET '.(int) $offset;
 
@@ -156,7 +184,7 @@ class SyncService
                     return;
                 }
 
-                $product = new \Product((int) $row['id_product'], false, $idLang);
+                $product = new \Product((int) $row['id_product'], false, $idLang, $idShop);
 
                 $callback($product);
                 ++$count;

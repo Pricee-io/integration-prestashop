@@ -24,6 +24,7 @@
  *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  *  International Registered Trademark & Property of PrestaShop SA
  */
+use PriceeIO\Service\SyncService;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 if (!defined('_PS_VERSION_')) {
@@ -102,7 +103,8 @@ class Pricee extends Module
         $this->context->smarty->assign([
             'module_dir' => $this->_path,
             'id_lang' => $this->context->language->id,
-            'categories' => $this->getCategories(),
+            'shops' => $this->getShops(),
+            'current_shop_id' => $this->getCurrentShopId(),
             'ajax_sync_link' => $ajaxSyncLink,
             'sync_token' => Tools::getAdminTokenLite('AdminModules'),
         ]);
@@ -206,7 +208,7 @@ class Pricee extends Module
                         'name' => 'PRICEE_WEBHOOK_URL_DISPLAY',
                         'readonly' => true,
                         'prefix' => '<i class="icon icon-link"></i>',
-                        'desc' => $this->l('Copiez cette URL pour configurer le webhook dans Pricee.io.'),
+                        'desc' => $this->getWebhookUrlHelp(),
                     ],
                     [
                         'col' => 3,
@@ -265,55 +267,121 @@ class Pricee extends Module
     }
 
     /**
-     * Get all categories for selection.
+     * Help of the webhook URL field: in multistore every shop receives its
+     * webhook on its own URL, so each shop of the context is listed.
+     *
+     * @return array<int, string>
      */
-    private function getCategories()
+    private function getWebhookUrlHelp(): array
     {
-        $id_lang = $this->context->language->id;
-        $rawCategories = Category::getCategories($id_lang, false, true);
-        $categories = [];
+        $help = [$this->l('Copiez cette URL pour configurer le webhook dans Pricee.io.')];
 
-        // Every product is associated with its default category, which is the
-        // shop home category by default: selecting it would sync the whole
-        // catalog, so it is not offered like the global root (id=1)
-        $homeCategoryId = (int) $this->context->shop->id_category;
+        $shopIds = Shop::getContextListShopID();
+        if (!Shop::isFeatureActive() || count($shopIds) < 2) {
+            return $help;
+        }
 
-        foreach ($rawCategories as $levelArray) {
-            foreach ($levelArray as $catData) {
-                if (!isset($catData['infos']['id_category'])) {
-                    continue;
-                }
-
-                $catId = (int) $catData['infos']['id_category'];
-                // Skip root category (id=1) and the shop home category
-                if ($catId <= 1 || $catId === $homeCategoryId) {
-                    continue;
-                }
-
-                // Load category
-                $category = new Category($catId, $id_lang);
-
-                // Make sure the object is fully loaded
-                if (!Validate::isLoadedObject($category)) {
-                    continue;
-                }
-
-                // Get product count
-                $productCount = 0;
-
-                try {
-                    $productCount = $category->getProducts($id_lang, 0, 1, null, null, true, true, false, 1, false);
-                } catch (Exception $e) {
-                    $productCount = 0;
-                }
-
-                $categories[] = [
-                    'id_category' => $category->id,
-                    'name' => $category->name,
-                    'product_count' => $productCount,
-                    'active' => (bool) $category->active,
-                ];
+        $help[] = $this->l('Chaque boutique a sa propre URL de webhook :');
+        foreach ($shopIds as $idShop) {
+            $shop = new Shop((int) $idShop);
+            if (!Validate::isLoadedObject($shop)) {
+                continue;
             }
+
+            $url = $this->context->link->getModuleLink($this->name, 'webhook', [], true, null, (int) $shop->id);
+            $help[] = htmlspecialchars($shop->name.' : '.$url, ENT_QUOTES, 'UTF-8');
+        }
+
+        return $help;
+    }
+
+    /**
+     * Shops of the current back-office context, for the sync shop selector:
+     * in "all shops" context every shop is listed, in "group" context the
+     * shops of the group, in "shop" context only the current shop. Each
+     * shop comes with its own categories, as they differ between shops.
+     *
+     * @return array<int, array{id_shop: int, name: string, categories: array<int, array<string, mixed>>}>
+     */
+    private function getShops(): array
+    {
+        $shops = [];
+        $idLang = (int) $this->context->language->id;
+
+        foreach (Shop::getContextListShopID() as $idShop) {
+            $shop = new Shop((int) $idShop);
+
+            if (!Validate::isLoadedObject($shop)) {
+                continue;
+            }
+
+            $shops[] = [
+                'id_shop' => (int) $shop->id,
+                'name' => $shop->name,
+                'categories' => $this->getCategories($shop, $idLang),
+            ];
+        }
+
+        return $shops;
+    }
+
+    /**
+     * Shop preselected in the sync form: the current shop in "shop" context,
+     * otherwise the first shop of the context.
+     */
+    private function getCurrentShopId(): int
+    {
+        if (Shop::CONTEXT_SHOP === Shop::getContext()) {
+            return (int) $this->context->shop->id;
+        }
+
+        $shopIds = Shop::getContextListShopID();
+
+        return [] !== $shopIds ? (int) reset($shopIds) : (int) $this->context->shop->id;
+    }
+
+    /**
+     * Categories of a shop offered for sync, in tree order, with the number
+     * of products a sync would take from each.
+     *
+     * @return array<int, array{id_category: int, name: string, product_count: int, active: bool}>
+     */
+    private function getCategories(Shop $shop, int $idLang): array
+    {
+        $idShop = (int) $shop->id;
+
+        $rows = Db::getInstance()->executeS(
+            'SELECT c.id_category, cl.name, c.active
+            FROM '._DB_PREFIX_.'category c
+            INNER JOIN '._DB_PREFIX_.'category_shop cs ON cs.id_category = c.id_category AND cs.id_shop = '.$idShop.'
+            INNER JOIN '._DB_PREFIX_.'category_lang cl ON cl.id_category = c.id_category
+                AND cl.id_lang = '.$idLang.' AND cl.id_shop = '.$idShop.'
+            WHERE c.id_category > 1
+            AND c.id_category != '.(int) $shop->id_category.'
+            ORDER BY c.nleft'
+        );
+
+        $counts = [];
+        $countRows = Db::getInstance()->executeS(
+            'SELECT cp.id_category, COUNT(DISTINCT cp.id_product) AS product_count
+            FROM '.SyncService::shopProductsSql($idShop).'
+            GROUP BY cp.id_category'
+        );
+        foreach ($countRows ?: [] as $countRow) {
+            $counts[(int) $countRow['id_category']] = (int) $countRow['product_count'];
+        }
+
+        // The global root (id 1) and the shop home category are not offered:
+        // every product belongs to its home category, so it would sync the whole catalog
+        $categories = [];
+        foreach ($rows ?: [] as $row) {
+            $idCategory = (int) $row['id_category'];
+            $categories[] = [
+                'id_category' => $idCategory,
+                'name' => (string) $row['name'],
+                'product_count' => $counts[$idCategory] ?? 0,
+                'active' => (bool) $row['active'],
+            ];
         }
 
         return $categories;

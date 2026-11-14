@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Add a shop selector to the sync form so one chosen shop is synced in multistore setups, each shop being registered with its own URL
+- Show, in multistore setups, the categories and product counts of the selected shop, and the webhook URL of each shop
+- Keep webhook price updates within the shop that received the webhook: products of other shops are skipped and promotions shared across shops or products, or coming from catalog price rules, are no longer modified
+- Fix webhook prices being stored as tax-excluded amounts in shops displaying tax-included prices
+- Skip webhook prices in a currency other than the shop currency
+- Keep receiving webhook price updates while the shop is in maintenance mode
+- Skip webhook updates for unknown products instead of guessing them from their URL
+- Fix products enabled in a shop but disabled in the default shop being left out of the sync
+
 ## [1.3.5] - 2026-11-04
 
 - Fix products outside the selected categories being synced: the home category is no longer selectable and, in multistore setups, products from other shops or disabled in the current shop are excluded

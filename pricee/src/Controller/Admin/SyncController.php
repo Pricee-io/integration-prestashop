@@ -30,16 +30,26 @@ class SyncController extends FrameworkBundleAdminController
             ], 403);
         }
 
-        $websiteUrl = $request->getSchemeAndHttpHost();
+        $idShop = (int) $request->request->get('id_shop');
         $idLang = $request->request->get('id_lang');
         $categories = $request->request->all()['categories'] ?? [];
         $syncedCount = 0;
         $success = false;
 
+        // Only a shop of the current back-office context can be synced
+        $contextShopIds = array_map('intval', \Shop::getContextListShopID());
+        if (!in_array($idShop, $contextShopIds, true)) {
+            return new JsonResponse([
+                'success' => false,
+                'synced' => 0,
+                'error' => 'Invalid shop',
+            ], 400);
+        }
+
         if (!empty($categories)) {
             try {
                 $syncedCount = $this->syncService->sync(
-                    $websiteUrl,
+                    $idShop,
                     (int) $idLang,
                     $categories
                 );
