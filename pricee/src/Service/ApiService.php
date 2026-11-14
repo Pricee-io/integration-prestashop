@@ -156,12 +156,10 @@ class ApiService
 
             if (!empty($products)) {
                 // Product exists: update its url only when it changed, and
-                // set extId when adopting a product synced without one. The
-                // API returns the tracked URL as product.url (url is write-only).
+                // set extId when adopting a product synced without one
                 $existing = $products[0];
-                $existingUrl = $existing['product']['url'] ?? $existing['url'] ?? '';
                 $patch = [];
-                if (rtrim((string) $existingUrl, '/') !== rtrim($productUrl, '/')) {
+                if (rtrim((string) ($existing['url'] ?? ''), '/') !== rtrim($productUrl, '/')) {
                     $patch['url'] = $productUrl;
                 }
                 if (($existing['extId'] ?? null) !== $productExtId) {
