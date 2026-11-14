@@ -148,7 +148,7 @@ class SyncServiceTest extends IntegrationTestCase
         $product = $this->createProduct('Pricee language product', 10, [(int) $category->id]);
         $product->link_rewrite[$this->shopDefaultLanguageId()] = 'shop-language-rewrite';
         $product->link_rewrite[(int) $userLanguage->id] = 'user-language-rewrite';
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
 
         // The back-office user browses in another language than the shop's
         $context = \Context::getContext();

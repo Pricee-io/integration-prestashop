@@ -17,6 +17,22 @@ if (!is_file($psRootDir.'/config/config.inc.php')) {
     exit(1);
 }
 
+// Module and test classes, without the root Composer autoloader: it holds the
+// PHP 8 dev tools, while older PrestaShop versions run the tests on PHP 7.4
+// with a standalone PHPUnit (see the compatibility CI job)
+spl_autoload_register(function (string $class): void {
+    foreach (['PriceeIO\Tests\\' => __DIR__.'/', 'PriceeIO\\' => __DIR__.'/../pricee/src/'] as $prefix => $directory) {
+        if (0 === strpos($class, $prefix)) {
+            $file = $directory.str_replace('\\', '/', substr($class, strlen($prefix))).'.php';
+            if (is_file($file)) {
+                require $file;
+            }
+
+            return;
+        }
+    }
+});
+
 define('_PS_IN_TEST_', true);
 
 require_once $psRootDir.'/config/config.inc.php';

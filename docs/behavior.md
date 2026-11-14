@@ -105,4 +105,4 @@ The call answers 200 "Webhook received and validated" even when some entries wer
 
 ## Tests
 
-`make test` runs the integration tests inside the PrestaShop container, on a disposable copy of the dev database (`test_prestashop`): the dev data is never modified. Each rule of the table above, the call-level refusals and the sync behavior have their own test.
+`make test` runs the integration tests inside the PrestaShop container, on a disposable copy of the dev database (`test_prestashop`): the dev data is never modified. CI also runs them on every supported PrestaShop version (1.7.8, 8.2 and 9.2), single-shop and multistore. Each rule of the table above, the call-level refusals and the sync behavior have their own test.

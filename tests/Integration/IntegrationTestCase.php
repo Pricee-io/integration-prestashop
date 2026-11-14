@@ -37,24 +37,55 @@ abstract class IntegrationTestCase extends TestCase
         }
     }
 
+    /**
+     * Reset PrestaShop's static caches. The reset methods differ between
+     * PrestaShop versions (1.7.8 has fewer), so missing ones are replaced by
+     * resetting the cache properties directly.
+     */
     protected function resetCaches(): void
     {
         \Cache::clean('*');
-        \Configuration::resetStaticCache();
+
+        if ($this->declaresStaticReset(\Configuration::class)) {
+            \Configuration::resetStaticCache();
+        } else {
+            \Configuration::clearConfigurationCacheForTesting();
+        }
         \Configuration::loadConfiguration();
+
         \Product::resetStaticCache();
-        \SpecificPrice::resetStaticCache();
-        \SpecificPrice::flushCache();
-        \TaxManagerFactory::resetStaticCache();
-        \GroupReduction::resetStaticCache();
-        \Shop::resetStaticCache();
-        \Shop::cacheShops(true);
         \Product::$_taxCalculationMethod = null;
 
-        foreach (['group_price_display_method' => [], 'groups' => [], 'ps_unidentified_group' => null, 'ps_customer_group' => null, 'cache_reduction' => []] as $property => $value) {
-            $reflection = new \ReflectionProperty(\Group::class, $property);
-            $reflection->setValue(null, $value);
+        if ($this->declaresStaticReset(\SpecificPrice::class)) {
+            \SpecificPrice::resetStaticCache();
+        } else {
+            $this->resetStaticProperties(\SpecificPrice::class, [
+                '_specificPriceCache' => [],
+                '_couldHaveSpecificPriceCache' => [],
+                '_hasGlobalProductRules' => null,
+                '_filterOutCache' => [],
+                '_cache_priorities' => [],
+                '_no_specific_values' => [],
+                'psQtyDiscountOnCombination' => null,
+            ]);
         }
+        \SpecificPrice::flushCache();
+
+        \TaxManagerFactory::resetStaticCache();
+        \GroupReduction::resetStaticCache();
+
+        if ($this->declaresStaticReset(\Shop::class)) {
+            \Shop::resetStaticCache();
+        }
+        \Shop::cacheShops(true);
+
+        $this->resetStaticProperties(\Group::class, [
+            'group_price_display_method' => [],
+            'groups' => [],
+            'ps_unidentified_group' => null,
+            'ps_customer_group' => null,
+            'cache_reduction' => [],
+        ]);
     }
 
     protected function shopId(): int
@@ -92,6 +123,16 @@ abstract class IntegrationTestCase extends TestCase
 
         \Configuration::updateGlobalValue('PS_MULTISHOP_FEATURE_ACTIVE', $active ? 1 : 0);
         $this->resetCaches();
+
+        // PrestaShop before 8 keeps the multistore state for the whole
+        // process: this test then runs in the other mode of the CI job
+        if (\Shop::isFeatureActive() !== $active) {
+            $this->markTestSkipped(sprintf(
+                'Needs multistore %s, which this PrestaShop version cannot switch during a run: run the tests with MULTISTORE=%d.',
+                $active ? 'on' : 'off',
+                $active ? 1 : 0
+            ));
+        }
     }
 
     /**
@@ -111,7 +152,7 @@ abstract class IntegrationTestCase extends TestCase
         $shop->id_category = (int) $current->id_category;
         $shop->theme_name = (string) $current->theme_name;
         $shop->active = true;
-        $this->assertTrue($shop->add(), 'test shop could not be created');
+        $this->assertTrue((bool) $shop->add(), 'test shop could not be created');
         $this->resetCaches();
 
         return (int) $shop->id;
@@ -137,7 +178,7 @@ abstract class IntegrationTestCase extends TestCase
         $language->date_format_lite = 'Y-m-d';
         $language->date_format_full = 'Y-m-d H:i:s';
         $language->active = true;
-        $this->assertTrue($language->add(), 'test language could not be created');
+        $this->assertTrue((bool) $language->add(), 'test language could not be created');
         $this->resetCaches();
         \Language::loadLanguages();
 
@@ -169,7 +210,7 @@ abstract class IntegrationTestCase extends TestCase
         $product->id_tax_rules_group = $idTaxRulesGroup;
         $product->id_category_default = $categoryIds[0] ?? $this->homeCategoryId();
         $product->active = true;
-        $this->assertTrue($product->add(), 'test product could not be created');
+        $this->assertTrue((bool) $product->add(), 'test product could not be created');
         $product->addToCategories(array_unique(array_merge([$this->homeCategoryId()], $categoryIds)));
 
         return $product;
@@ -182,7 +223,7 @@ abstract class IntegrationTestCase extends TestCase
         $category->link_rewrite = $this->multilang(\Tools::str2url($name));
         $category->id_parent = $idParent ?? $this->homeCategoryId();
         $category->active = true;
-        $this->assertTrue($category->add(), 'test category could not be created');
+        $this->assertTrue((bool) $category->add(), 'test category could not be created');
 
         return $category;
     }
@@ -196,19 +237,19 @@ abstract class IntegrationTestCase extends TestCase
         $tax->name = $this->multilang('Pricee test tax');
         $tax->rate = $rate;
         $tax->active = true;
-        $this->assertTrue($tax->add());
+        $this->assertTrue((bool) $tax->add());
 
         $group = new \TaxRulesGroup();
         $group->name = 'Pricee test tax rules';
         $group->active = true;
-        $this->assertTrue($group->add());
+        $this->assertTrue((bool) $group->add());
 
         $rule = new \TaxRule();
         $rule->id_tax_rules_group = (int) $group->id;
         $rule->id_country = (int) \Configuration::get('PS_COUNTRY_DEFAULT');
         $rule->id_tax = (int) $tax->id;
         $rule->behavior = 0;
-        $this->assertTrue($rule->add());
+        $this->assertTrue((bool) $rule->add());
 
         return (int) $group->id;
     }
@@ -251,9 +292,43 @@ abstract class IntegrationTestCase extends TestCase
         foreach (array_merge($defaults, $fields) as $field => $value) {
             $specificPrice->{$field} = $value;
         }
-        $this->assertTrue($specificPrice->add(), 'test specific price could not be created');
+        $this->assertTrue((bool) $specificPrice->add(), 'test specific price could not be created');
         $this->resetCaches();
 
         return $specificPrice;
+    }
+
+    /**
+     * Whether the class has its own resetStaticCache(): in older versions
+     * some only inherit ObjectModel's, which does not reset their caches.
+     */
+    private function declaresStaticReset(string $class): bool
+    {
+        if (!method_exists($class, 'resetStaticCache')) {
+            return false;
+        }
+
+        $declaringClass = (new \ReflectionMethod($class, 'resetStaticCache'))->getDeclaringClass()->getName();
+
+        return !in_array($declaringClass, ['ObjectModel', 'ObjectModelCore'], true);
+    }
+
+    /**
+     * @param array<string, mixed> $values static property values, by name; missing properties are ignored
+     */
+    private function resetStaticProperties(string $class, array $values): void
+    {
+        foreach ($values as $property => $value) {
+            if (!property_exists($class, $property)) {
+                continue;
+            }
+
+            $reflection = new \ReflectionProperty($class, $property);
+            // Needed before PHP 8.1 for protected properties (deprecated since)
+            if (PHP_VERSION_ID < 80100) {
+                $reflection->setAccessible(true);
+            }
+            $reflection->setValue(null, $value);
+        }
     }
 }

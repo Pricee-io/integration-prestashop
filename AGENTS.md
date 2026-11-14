@@ -62,7 +62,9 @@ Writing a price is the critical action of the module: when in doubt, skip the en
 
 ## Tests
 
-`make test` runs the PHPUnit integration tests inside the PrestaShop container (`make start` first). They use PrestaShop's test mode, on `test_prestashop`, a copy of the dev database rebuilt at each run, and each test is rolled back. A test that triggers an implicit commit (e.g. a module hook running `TRUNCATE`) fails instead of leaking data.
+`make test` runs the PHPUnit integration tests inside the PrestaShop container (`make start` first). They use PrestaShop's test mode, on `test_prestashop`, a copy of the dev database rebuilt at each run by `tests/prepare-test-db.sh`, and each test is rolled back. A test that triggers an implicit commit (e.g. a module hook running `TRUNCATE`) fails instead of leaking data.
+
+The compatibility CI (`.github/workflows/ps-compat.yml`) also runs them on every supported PrestaShop version (1.7.8, 8.2, 9.2), with a standalone PHPUnit matching each image's PHP (9.6 on PHP 7.4/8.1). Tests must stay compatible with PHP 7.4 and PHPUnit 9.6, and use PrestaShop APIs available in 1.7.8 (or fall back, as `IntegrationTestCase::resetCaches()` does). PrestaShop 1.7.8 cannot switch multistore during a run, so that job runs the suite once single-shop and once multistore (`MULTISTORE=0|1` for `tests/prepare-test-db.sh`); tests needing the other mode are skipped by `setMultistore()`.
 
 ## Multi-shop (multistore)
 

@@ -253,7 +253,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct();
         $combination = new \Combination();
         $combination->id_product = (int) $product->id;
-        $this->assertTrue($combination->add());
+        $this->assertTrue((bool) $combination->add());
         $this->resetCaches();
 
         $this->assertSame([WebhookService::SKIPPED_UNSUPPORTED_TYPE], $this->send([$this->entry(['extId' => (string) $product->id])]));
@@ -432,7 +432,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->setConfiguration('PS_USE_ECOTAX', 1);
         $product = $this->createProduct();
         $product->ecotax = 0.5;
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
         $this->assertSame([WebhookService::SKIPPED_ECOTAX], $this->send([$this->entry(['extId' => (string) $product->id])]));
@@ -444,7 +444,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->setConfiguration('PS_USE_ECOTAX', 0);
         $product = $this->createProduct();
         $product->ecotax = 0.5;
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
         $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id])]));
@@ -478,7 +478,7 @@ class WebhookServiceTest extends IntegrationTestCase
     {
         $product = $this->createProduct();
         $product->active = false;
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
         $this->assertSame([WebhookService::SKIPPED_PRICE_NOT_SHOWN], $this->send([$this->entry(['extId' => (string) $product->id])]));
@@ -490,7 +490,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct();
         $product->available_for_order = false;
         $product->show_price = false;
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
         $this->assertSame([WebhookService::SKIPPED_PRICE_NOT_SHOWN], $this->send([$this->entry(['extId' => (string) $product->id])]));
@@ -505,7 +505,7 @@ class WebhookServiceTest extends IntegrationTestCase
     {
         $product = $this->createProduct();
         $product->wholesale_price = 8;
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
         $this->assertSame([WebhookService::SKIPPED_BELOW_COST], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 7.99])]));
@@ -516,7 +516,7 @@ class WebhookServiceTest extends IntegrationTestCase
     {
         $product = $this->createProduct();
         $product->wholesale_price = 8;
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
         $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 8])]));
@@ -526,7 +526,7 @@ class WebhookServiceTest extends IntegrationTestCase
     {
         $product = $this->createProduct('Pricee taxed product', 100.0, [], $this->createTaxRulesGroup(20.0));
         $product->wholesale_price = 80;
-        $this->assertTrue($product->update());
+        $this->assertTrue((bool) $product->update());
         $this->setVisitorPricesTaxIncluded(true);
 
         // 90 tax included is 75 tax excluded, below the cost of 80

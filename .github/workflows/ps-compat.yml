@@ -8,7 +8,7 @@ on:
 
 jobs:
   install-and-analyze:
-    name: PS ${{ matrix.ps }} - install module + PHPStan
+    name: PS ${{ matrix.ps }} - install module, PHPStan and tests
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -18,12 +18,16 @@ jobs:
           # Lowest supported version (ps_versions_compliancy min)
           - ps: '1.7.8.11'
             db: 'mariadb:10.6'
+            # Standalone PHPUnit matching the image's PHP (7.4 here)
+            phpunit: '9.6'
           # Mid-range 8.x
           - ps: '8.2.1'
             db: 'mariadb:10.11'
+            phpunit: '9.6'
           # Latest supported version (ps_versions_compliancy max)
           - ps: '9.2.1-apache'
             db: 'mariadb:11.4'
+            phpunit: '12'
 
     steps:
       - name: Checkout repository
@@ -136,6 +140,28 @@ jobs:
             -v psweb:/var/www/html \
             -e _PS_ROOT_DIR_=/var/www/html \
             pricee-dev php vendor/bin/phpstan analyse pricee --error-format=github --memory-limit=1G --no-progress
+
+      # The tests run inside the shop container, on a disposable copy of its
+      # database (tests/prepare-test-db.sh). Older PrestaShop versions cannot
+      # switch multistore during a run, so the suite runs once single-shop and
+      # once multistore: each run skips the tests needing the other mode.
+      - name: Prepare integration tests
+        run: |
+          docker exec psapp mkdir -p /app
+          docker cp tests psapp:/app/tests
+          docker cp pricee psapp:/app/pricee
+          docker cp phpunit.xml.dist psapp:/app/phpunit.xml.dist
+          docker exec psapp sh -c 'curl -sSL -o /usr/local/bin/phpunit https://phar.phpunit.de/phpunit-${{ matrix.phpunit }}.phar && chmod +x /usr/local/bin/phpunit && chown -R www-data /app && php -v | head -1 && phpunit --version'
+
+      - name: Run integration tests (single shop)
+        run: |
+          docker exec -i -e MULTISTORE=0 psdb sh -s < tests/prepare-test-db.sh
+          docker exec --user www-data -w /app psapp phpunit
+
+      - name: Run integration tests (multistore)
+        run: |
+          docker exec -i -e MULTISTORE=1 psdb sh -s < tests/prepare-test-db.sh
+          docker exec --user www-data -w /app psapp phpunit
 
       - name: Cleanup
         if: always()
