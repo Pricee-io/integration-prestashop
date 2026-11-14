@@ -179,6 +179,9 @@ class Pricee extends Module
                         'col' => 3,
                         'type' => 'password',
                         'name' => 'PRICEE_API_KEY',
+                        // The core template forces a 160px width on password
+                        // inputs: let it fill its column like the text inputs.
+                        'form_group_class' => 'pricee-fluid-input',
                         'label' => $this->l('Clé API'),
                     ],
                     [

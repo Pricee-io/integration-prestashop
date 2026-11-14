@@ -45,3 +45,7 @@
 .mb-2 {
     margin-bottom: 0.5rem;
 }
+
+.pricee-fluid-input .input-group.fixed-width-lg {
+    width: auto !important;
+}
