@@ -42,6 +42,15 @@ test:
 	docker compose exec -T mysql sh -s < tests/prepare-test-db.sh
 	docker compose exec -T --user www-data -w /app prestashop php vendor/bin/phpunit $(FILTER)
 
+# End-to-end tests in a throwaway shop of their own (the dev shop is not
+# touched): upgrade from the last release, webhook over HTTP, back-office sync.
+# Another version: make e2e PS=1.7.8.11 DB=mariadb:10.6
+PS ?= 9.2.1-apache
+DB ?= mariadb:11.4
+.PHONY: e2e
+e2e:
+	e2e/run.sh $(PS) $(DB)
+
 rector:
 	docker compose run --rm --user $$(id -u):$$(id -g) dev php vendor/bin/rector process
 

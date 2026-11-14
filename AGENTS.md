@@ -66,6 +66,10 @@ Writing a price is the critical action of the module: when in doubt, skip the en
 
 The compatibility CI (`.github/workflows/ps-compat.yml`) also runs them on every supported PrestaShop version (1.7.8, 8.2, 9.2), with a standalone PHPUnit matching each image's PHP (9.6 on PHP 7.4/8.1). Tests must stay compatible with PHP 7.4 and PHPUnit 9.6, and use PrestaShop APIs available in 1.7.8 (or fall back, as `IntegrationTestCase::resetCaches()` does). PrestaShop 1.7.8 cannot switch multistore during a run, so that job runs the suite once single-shop and once multistore (`MULTISTORE=0|1` for `tests/prepare-test-db.sh`); tests needing the other mode are skipped by `setMultistore()`.
 
+## End-to-end tests
+
+`make e2e` (`e2e/run.sh`) starts its own throwaway database and shop containers (never the dev ones) and tests the upgrade from the last release, real HTTP webhook calls and a back-office sync in a browser against a fake Pricee API. `.github/workflows/e2e.yml` runs it on 1.7.8, 8.2 and 9.2. Keep `e2e/shop.php` and `e2e/fake-api.php` compatible with PHP 7.4. When releasing, point `E2E_FROM_REF` in `e2e/run.sh` to the new release commit.
+
 ## Multi-shop (multistore)
 
 The module must work correctly on PrestaShop multistore installs:

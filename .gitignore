@@ -2,3 +2,5 @@ vendor/
 composer.lock
 .php-cs-fixer.cache
 *.zip
+e2e/node_modules/
+e2e/output/

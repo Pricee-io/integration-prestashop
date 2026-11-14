@@ -1,0 +1,9 @@
+{
+  "name": "pricee-prestashop-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser part of the end-to-end tests (see run.sh)",
+  "devDependencies": {
+    "playwright": "1.49.1"
+  }
+}
