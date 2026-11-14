@@ -20,9 +20,13 @@ class SyncService
      *
      * @param array<int> $categories
      */
-    public function sync(int $idShop, int $idLang, array $categories): int
+    public function sync(int $idShop, array $categories): int
     {
         $context = \Context::getContext();
+
+        // Product URLs are sent in the shop default language: the back-office
+        // user's language may not be active in that shop
+        $idLang = (int) \Configuration::get('PS_LANG_DEFAULT', null, null, $idShop);
 
         // Credentials can be configured per shop: read them for the shop
         // being synced, with the usual fallback to group/global values

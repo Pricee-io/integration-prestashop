@@ -102,7 +102,6 @@ class Pricee extends Module
             : '';
         $this->context->smarty->assign([
             'module_dir' => $this->_path,
-            'id_lang' => $this->context->language->id,
             'shops' => $this->getShops(),
             'current_shop_id' => $this->getCurrentShopId(),
             'ajax_sync_link' => $ajaxSyncLink,

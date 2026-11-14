@@ -31,7 +31,6 @@ class SyncController extends FrameworkBundleAdminController
         }
 
         $idShop = (int) $request->request->get('id_shop');
-        $idLang = $request->request->get('id_lang');
         $categories = array_map('intval', (array) ($request->request->all()['categories'] ?? []));
         $syncedCount = 0;
         $success = false;
@@ -60,7 +59,6 @@ class SyncController extends FrameworkBundleAdminController
             try {
                 $syncedCount = $this->syncService->sync(
                     $idShop,
-                    (int) $idLang,
                     $categories
                 );
                 $success = true;
