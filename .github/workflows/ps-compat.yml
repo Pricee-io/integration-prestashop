@@ -129,12 +129,13 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8081/ || true)
           echo "Front office HTTP $code, module is active"
 
+      # Only the module: the tests run on the dev PrestaShop version only
       - name: Run PHPStan against this PrestaShop version
         run: |
           docker run --rm -v "$PWD":/app -w /app \
             -v psweb:/var/www/html \
             -e _PS_ROOT_DIR_=/var/www/html \
-            pricee-dev php vendor/bin/phpstan analyse --error-format=github --memory-limit=1G --no-progress
+            pricee-dev php vendor/bin/phpstan analyse pricee --error-format=github --memory-limit=1G --no-progress
 
       - name: Cleanup
         if: always()

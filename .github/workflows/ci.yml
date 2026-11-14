@@ -18,12 +18,8 @@ jobs:
       - name: Start services
         run: make start
 
-      - name: Run lint check
-        run: make lint_ci
-
-      - name: Run static analysis
-        run: make analyze_ci
-
+      # Before PHPStan: it boots PrestaShop, and cache folders it creates during
+      # the install would not be writable by the installer (www-data)
       - name: Wait for PrestaShop installation
         run: |
           for i in $(seq 1 240); do
@@ -47,6 +43,12 @@ jobs:
           docker logs prestashop_app || true
           exit 1
         timeout-minutes: 25
+
+      - name: Run lint check
+        run: make lint_ci
+
+      - name: Run static analysis
+        run: make analyze_ci
 
       - name: Run integration tests
         run: make test
