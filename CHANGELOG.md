@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add a shop selector to the sync form so one chosen shop is synced in multistore setups, each shop being registered with its own URL
 - Show, in multistore setups, the categories and product counts of the selected shop, and the webhook URL of each shop
-- Keep webhook price updates within the shop that received the webhook: products of other shops are skipped and promotions shared across shops or products, or coming from catalog price rules, are no longer modified
+- Keep webhook price updates within the shop that received the webhook: products of other shops are skipped
+- Only update the price of products whose displayed price is their base price: products with a promotion, quantity discount, catalog price rule, ecotax or visitor group discount are no longer modified, and promotions are never edited
+- Never update a price below the product's cost price
+- Skip webhook updates for disabled products, products with a hidden price, and products sent several times in the same update
+- Sync product URLs in the shop's default language instead of the back-office user's language
+- Show only the categories of the selected shop's own tree in the sync form
 - Fix webhook prices being stored as tax-excluded amounts in shops displaying tax-included prices
 - Skip webhook prices in a currency other than the shop currency
 - Keep receiving webhook price updates while the shop is in maintenance mode
