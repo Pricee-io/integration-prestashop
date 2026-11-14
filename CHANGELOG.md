@@ -7,19 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Add a shop selector to the sync form so one chosen shop is synced in multistore setups, each shop being registered with its own URL
-- Show, in multistore setups, the categories and product counts of the selected shop, and the webhook URL of each shop
-- Keep webhook price updates within the shop that received the webhook: products of other shops are skipped
-- Only update the price of products whose displayed price is their base price: products with a promotion, quantity discount, catalog price rule, ecotax or visitor group discount are no longer modified, and promotions are never edited
-- Never update a price below the product's cost price
-- Skip webhook updates for disabled products, products with a hidden price, and products sent several times in the same update
-- Sync product URLs in the shop's default language instead of the back-office user's language
-- Show only the categories of the selected shop's own tree in the sync form
-- Fix webhook prices being stored as tax-excluded amounts in shops displaying tax-included prices
-- Skip webhook prices in a currency other than the shop currency
-- Keep receiving webhook price updates while the shop is in maintenance mode
-- Skip webhook updates for unknown products instead of guessing them from their URL
+- Multistore: choose the shop to sync in the sync form; each shop is registered on Pricee with its own URL, and only shows its own categories and product counts
+- Multistore: show the webhook URL of each shop in its own field
+- Sync large catalogs without timeouts: products are sent in batches with a progress indicator, and the 500-product limit is removed
+- Show the number of products in error at the end of a sync, and ask to select a category when none is checked
+- Send product URLs in the shop's default language instead of the back-office user's language
 - Fix products enabled in a shop but disabled in the default shop being left out of the sync
+- Only update the base price of a product through the webhook: products with a promotion, quantity discount, catalog price rule, ecotax or visitor group discount are no longer updated, and promotions are never modified
+- Skip webhook price updates that would go below the product's cost price, for disabled products or products with a hidden price, for products of another shop, in a currency other than the shop's, or when the same product is sent twice
+- Fix webhook prices being saved tax included in shops displaying tax-included prices, which added the tax a second time
+- Match webhook updates to the right product: an unknown product ID is skipped instead of being looked up by URL, and a URL only matches the product whose name it contains
+- Keep receiving webhook price updates while the shop is in maintenance mode
+- Fix the API key field being narrower than the other settings fields
 - Support PrestaShop 9.2.1
 
 ## [1.3.5] - 2026-11-04
