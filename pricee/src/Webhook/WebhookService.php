@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace PriceeIO\Webhook;
 
-use PrestaShop\PrestaShop\Core\Domain\Product\ValueObject\ProductType;
-
 /**
  * Price-update webhook received from Pricee (see the webhook contract in
  * AGENTS.md): checks the call, then applies each entry to the receiving shop.
@@ -143,9 +141,10 @@ class WebhookService
         }
 
         // Only simple products: the page of a product with variants shows
-        // the default variant's price, a pack's price is computed
-        $productType = $product->getDynamicProductType();
-        if (ProductType::TYPE_PACK === $productType || ProductType::TYPE_COMBINATIONS === $productType) {
+        // the default variant's price, a pack's price is computed. Any
+        // combination counts, with or without attributes (older PrestaShop
+        // versions only detect combinations that have attributes)
+        if (\Pack::isPack((int) $product->id) || [] !== (\Product::getProductAttributesIds((int) $product->id) ?: [])) {
             return $this->skip(self::SKIPPED_UNSUPPORTED_TYPE, 'variants or pack', $product);
         }
 
