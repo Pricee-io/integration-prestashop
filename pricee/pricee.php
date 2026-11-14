@@ -148,7 +148,7 @@ class Pricee extends Module
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
         $helper->tpl_vars = [
-            'fields_value' => $this->getConfigFormValues(), // Add values for your inputs
+            'fields_value' => $this->getConfigFormValues() + $this->getWebhookUrlValues(),
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
@@ -201,15 +201,7 @@ class Pricee extends Module
                         ],
                         'desc' => $this->l('Active la mise à jour automatique des prix de vos produits depuis Pricee.'),
                     ],
-                    [
-                        'col' => 3,
-                        'type' => 'text',
-                        'label' => $this->l('URL du Webhook'),
-                        'name' => 'PRICEE_WEBHOOK_URL_DISPLAY',
-                        'readonly' => true,
-                        'prefix' => '<i class="icon icon-link"></i>',
-                        'desc' => $this->getWebhookUrlHelp(),
-                    ],
+                    ...$this->getWebhookUrlInputs(),
                     [
                         'col' => 3,
                         'type' => 'text',
@@ -230,15 +222,27 @@ class Pricee extends Module
      */
     protected function getConfigFormValues()
     {
-        $webhookUrl = $this->context->link->getModuleLink($this->name, 'webhook', [], true);
-
         return [
             'PRICEE_CLIENT_ID' => Configuration::get('PRICEE_CLIENT_ID', null),
             'PRICEE_API_KEY' => Configuration::get('PRICEE_API_KEY', null),
             'PRICEE_WEBHOOK_ENABLED' => Configuration::get('PRICEE_WEBHOOK_ENABLED', null),
             'PRICEE_WEBHOOK_SECRET' => Configuration::get('PRICEE_WEBHOOK_SECRET', null),
-            'PRICEE_WEBHOOK_URL_DISPLAY' => $webhookUrl,
         ];
+    }
+
+    /**
+     * Values of the read-only webhook URL fields, which are not saved.
+     *
+     * @return array<string, string>
+     */
+    protected function getWebhookUrlValues(): array
+    {
+        $values = [];
+        foreach ($this->getWebhookUrls() as $name => $webhookUrl) {
+            $values[$name] = $webhookUrl['url'];
+        }
+
+        return $values;
     }
 
     /**
@@ -249,11 +253,6 @@ class Pricee extends Module
         $form_values = $this->getConfigFormValues();
 
         foreach (array_keys($form_values) as $key) {
-            // Read-only display field, not real configuration to persist
-            if ('PRICEE_WEBHOOK_URL_DISPLAY' === $key) {
-                continue;
-            }
-
             $value = trim((string) Tools::getValue($key));
 
             // Password inputs are not repopulated by the form: an empty
@@ -267,32 +266,74 @@ class Pricee extends Module
     }
 
     /**
-     * Help of the webhook URL field: in multistore every shop receives its
-     * webhook on its own URL, so each shop of the context is listed.
+     * Read-only webhook URL fields. In multistore every shop receives its
+     * webhook on its own URL, so each shop of the context gets its own
+     * field, labelled with the shop name.
      *
-     * @return array<int, string>
+     * @return array<int, array<string, mixed>>
      */
-    private function getWebhookUrlHelp(): array
+    private function getWebhookUrlInputs(): array
     {
-        $help = [$this->l('Copiez cette URL pour configurer le webhook dans Pricee.io.')];
+        $webhookUrls = $this->getWebhookUrls();
+        $multiShop = count($webhookUrls) > 1;
 
-        $shopIds = Shop::getContextListShopID();
-        if (!Shop::isFeatureActive() || count($shopIds) < 2) {
-            return $help;
+        $inputs = [];
+        foreach ($webhookUrls as $name => $webhookUrl) {
+            $inputs[] = [
+                'col' => 5,
+                'type' => 'text',
+                'label' => $multiShop
+                    ? sprintf($this->l('URL du Webhook (%s)'), $webhookUrl['shop'])
+                    : $this->l('URL du Webhook'),
+                'name' => $name,
+                'readonly' => true,
+                'prefix' => '<i class="icon icon-link"></i>',
+            ];
         }
 
-        $help[] = $this->l('Chaque boutique a sa propre URL de webhook :');
-        foreach ($shopIds as $idShop) {
-            $shop = new Shop((int) $idShop);
-            if (!Validate::isLoadedObject($shop)) {
-                continue;
+        $lastIndex = count($inputs) - 1;
+        $inputs[$lastIndex]['desc'] = $multiShop
+            ? $this->l('Copiez chaque URL dans la configuration du webhook de la boutique correspondante sur Pricee.io.')
+            : $this->l('Copiez cette URL pour configurer le webhook dans Pricee.io.');
+
+        return $inputs;
+    }
+
+    /**
+     * Webhook URL of each shop of the back-office context, keyed by the
+     * name of its read-only form field. Outside multistore, or with a
+     * single shop in context, only the current shop's URL is returned.
+     *
+     * @return non-empty-array<string, array{shop: string, url: string}>
+     */
+    private function getWebhookUrls(): array
+    {
+        $webhookUrls = [];
+
+        if (Shop::isFeatureActive()) {
+            foreach (Shop::getContextListShopID() as $idShop) {
+                $shop = new Shop((int) $idShop);
+                if (!Validate::isLoadedObject($shop)) {
+                    continue;
+                }
+
+                $webhookUrls['PRICEE_WEBHOOK_URL_DISPLAY_'.(int) $shop->id] = [
+                    'shop' => $shop->name,
+                    'url' => $this->context->link->getModuleLink($this->name, 'webhook', [], true, null, (int) $shop->id),
+                ];
             }
-
-            $url = $this->context->link->getModuleLink($this->name, 'webhook', [], true, null, (int) $shop->id);
-            $help[] = htmlspecialchars($shop->name.' : '.$url, ENT_QUOTES, 'UTF-8');
         }
 
-        return $help;
+        if (count($webhookUrls) < 2) {
+            $webhookUrls = [
+                'PRICEE_WEBHOOK_URL_DISPLAY' => [
+                    'shop' => (string) $this->context->shop->name,
+                    'url' => $this->context->link->getModuleLink($this->name, 'webhook', [], true),
+                ],
+            ];
+        }
+
+        return $webhookUrls;
     }
 
     /**
