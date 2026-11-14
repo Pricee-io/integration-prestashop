@@ -72,4 +72,5 @@ The module must work correctly on PrestaShop multistore installs:
 - Scope every shop-dependent value explicitly: `Configuration::get`/`updateValue` with `$idShop`, product queries through the `product_shop` join (`SyncService::shopProductsSql`, whose `ps.active` is the shop's flag), products loaded with `new Product($id, false, $idLang, $idShop)`, product links via `getProductLink(..., $idShop)`, categories through `category_shop` and the shop's own home category.
 - A sync targets exactly one shop, chosen in a dropdown in the module page (shops of the current back-office context, current shop preselected). Never silently sync a shop other than the selected one.
 - On uninstall, `Configuration::deleteByName` already removes the key for every shop and shop group.
+- Settings levels (`pricee/src/Settings/SettingsService.php`): Pricee credentials are shared (all shops or group) by default with an optional per-shop value; webhook settings are per shop only and not editable for all shops or a group.
 - Webhook price updates must stay within the receiving shop: skip products not associated with the current shop and write the price for that shop only.

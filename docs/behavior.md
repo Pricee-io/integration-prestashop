@@ -18,10 +18,17 @@ One page in the back office (Modules → Pricee.io → Configure), in French, wi
 | ID Client | Pricee API client ID. |
 | Clé API | Pricee API key. Masked; leaving it empty on save keeps the stored key. |
 | Activer la synchronisation webhook | Yes/No. When No, the webhook refuses every call. |
-| URL du Webhook | Read-only, to copy into Pricee. In multistore with several shops in context: one field per shop, labelled with the shop name. |
+| URL du Webhook | Read-only, the shop's webhook URL to copy into Pricee. |
 | Clé secrète webhook | Shared secret used to check that webhook calls come from Pricee. Must be the same on both sides. |
 
-All values are saved for the shop context selected in the back office (a single shop, a group or all shops), with PrestaShop's usual fallback: shop → group → global.
+Without multistore, all settings are saved for the shop, as usual.
+
+With multistore, the form title shows the level being edited ("Configuration — Toutes les boutiques", "— Groupe : X" or "— Boutique : X", from the shop selector at the top of the back office), and the settings are saved at that level:
+
+- **Pricee credentials** (ID Client, Clé API): shared by default.
+  - For all shops or a group: the credentials apply to every shop (of the group), and the help text lists the shops and groups that use their own credentials instead.
+  - For one shop: a switch "Utiliser les identifiants communs". Yes (default): the shop uses the shared credentials, its credential fields are disabled, and saving removes any credentials of its own. No: the shop uses the credentials entered below.
+- **Webhook settings** (activation, URL, secret key): per shop only, because each shop is its own website with its own webhook on Pricee. For all shops or a group, they are replaced by a note asking to select a shop.
 
 ### Sync block
 

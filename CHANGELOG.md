@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Multistore: choose the shop to sync in the sync form; each shop is registered on Pricee with its own URL, and only shows its own categories and product counts
-- Multistore: show the webhook URL of each shop in its own field
+- Multistore: show which level the settings form edits; Pricee credentials are shared by default and a shop can switch to its own, and webhook settings are configured shop by shop
 - Sync large catalogs without timeouts: products are sent in batches with a progress indicator, and the 500-product limit is removed
 - Show the number of products in error at the end of a sync, and ask to select a category when none is checked
 - Send product URLs in the shop's default language instead of the back-office user's language

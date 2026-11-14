@@ -25,6 +25,7 @@
  *  International Registered Trademark & Property of PrestaShop SA
  */
 use PriceeIO\Service\SyncService;
+use PriceeIO\Settings\SettingsService;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 if (!defined('_PS_VERSION_')) {
@@ -132,6 +133,7 @@ class Pricee extends Module
      */
     protected function renderForm()
     {
+        $settings = new SettingsService();
         $helper = new HelperForm();
 
         $helper->show_toolbar = false;
@@ -146,72 +148,100 @@ class Pricee extends Module
             .'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
+        $values = $settings->formValues();
+        $values['PRICEE_SHARED_CREDENTIALS'] = (int) $settings->usesSharedCredentials();
+        $values['PRICEE_WEBHOOK_URL_DISPLAY'] = $this->context->link->getModuleLink($this->name, 'webhook', [], true, null, (int) $this->context->shop->id);
+
         $helper->tpl_vars = [
-            'fields_value' => $this->getConfigFormValues() + $this->getWebhookUrlValues(),
+            'fields_value' => $values,
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
 
-        return $helper->generateForm([$this->getConfigForm()]);
+        $output = $helper->generateForm([$this->getConfigForm($settings)]);
+
+        if (SettingsService::SCOPE_SHOP === $settings->scope()) {
+            $output .= $this->context->smarty->fetch($this->local_path.'views/templates/admin/settings.tpl');
+        }
+
+        return $output;
     }
 
     /**
-     * Structure of form.
+     * Structure of form: what is editable depends on the level the
+     * back-office context edits (see SettingsService).
      */
-    protected function getConfigForm()
+    protected function getConfigForm(SettingsService $settings)
     {
+        $scope = $settings->scope();
+        $inputs = [];
+
+        if (SettingsService::SCOPE_SHOP === $scope) {
+            $inputs[] = $this->switchInput(
+                'PRICEE_SHARED_CREDENTIALS',
+                $this->l('Utiliser les identifiants communs'),
+                $this->l('Oui : cette boutique utilise les identifiants définis pour toutes les boutiques ou pour son groupe. Non : elle utilise ses propres identifiants ci-dessous.')
+            );
+        }
+
+        $inputs[] = [
+            'col' => 3,
+            'type' => 'text',
+            'prefix' => '<i class="icon icon-envelope"></i>',
+            'name' => 'PRICEE_CLIENT_ID',
+            'label' => $this->l('ID Client'),
+            'desc' => $this->credentialsHelp($settings),
+        ];
+        $inputs[] = [
+            'col' => 3,
+            'type' => 'password',
+            'name' => 'PRICEE_API_KEY',
+            // The core template forces a 160px width on password
+            // inputs: let it fill its column like the text inputs.
+            'form_group_class' => 'pricee-fluid-input',
+            'label' => $this->l('Clé API'),
+        ];
+
+        if ($settings->webhookEditable()) {
+            $inputs[] = $this->switchInput(
+                'PRICEE_WEBHOOK_ENABLED',
+                $this->l('Activer la synchronisation webhook'),
+                $this->l('Active la mise à jour automatique des prix de vos produits depuis Pricee.')
+            );
+            $inputs[] = [
+                'col' => 5,
+                'type' => 'text',
+                'label' => $this->l('URL du Webhook'),
+                'name' => 'PRICEE_WEBHOOK_URL_DISPLAY',
+                'readonly' => true,
+                'prefix' => '<i class="icon icon-link"></i>',
+                'desc' => $this->l('Copiez cette URL pour configurer le webhook dans Pricee.io.'),
+            ];
+            $inputs[] = [
+                'col' => 3,
+                'type' => 'text',
+                'name' => 'PRICEE_WEBHOOK_SECRET',
+                'label' => $this->l('Clé secrète webhook'),
+                'desc' => $this->l('Clé secrète pour valider la provenance des webhooks.'),
+            ];
+        } else {
+            $inputs[] = [
+                'type' => 'html',
+                'name' => 'PRICEE_WEBHOOK_SHOP_ONLY',
+                'label' => $this->l('Webhook'),
+                'html_content' => '<div class="alert alert-info">'
+                    .htmlspecialchars($this->l('Le webhook se configure boutique par boutique, car chaque boutique a son propre site et son propre webhook sur Pricee.io : sélectionnez une boutique dans le sélecteur de boutiques en haut de page pour le configurer.'), ENT_QUOTES, 'UTF-8')
+                    .'</div>',
+            ];
+        }
+
         return [
             'form' => [
                 'legend' => [
-                    'title' => $this->l('Configuration'),
+                    'title' => $this->l('Configuration').' — '.$this->scopeLabel($scope),
                     'icon' => 'icon-cogs',
                 ],
-                'input' => [
-                    [
-                        'col' => 3,
-                        'type' => 'text',
-                        'prefix' => '<i class="icon icon-envelope"></i>',
-                        'name' => 'PRICEE_CLIENT_ID',
-                        'label' => $this->l('ID Client'),
-                    ],
-                    [
-                        'col' => 3,
-                        'type' => 'password',
-                        'name' => 'PRICEE_API_KEY',
-                        // The core template forces a 160px width on password
-                        // inputs: let it fill its column like the text inputs.
-                        'form_group_class' => 'pricee-fluid-input',
-                        'label' => $this->l('Clé API'),
-                    ],
-                    [
-                        'col' => 3,
-                        'type' => 'switch',
-                        'label' => $this->l('Activer la synchronisation webhook'),
-                        'name' => 'PRICEE_WEBHOOK_ENABLED',
-                        'is_bool' => true,
-                        'values' => [
-                            [
-                                'id' => 'enabled_on',
-                                'value' => 1,
-                                'label' => $this->l('Oui'),
-                            ],
-                            [
-                                'id' => 'enabled_off',
-                                'value' => 0,
-                                'label' => $this->l('Non'),
-                            ],
-                        ],
-                        'desc' => $this->l('Active la mise à jour automatique des prix de vos produits depuis Pricee.'),
-                    ],
-                    ...$this->getWebhookUrlInputs(),
-                    [
-                        'col' => 3,
-                        'type' => 'text',
-                        'name' => 'PRICEE_WEBHOOK_SECRET',
-                        'label' => $this->l('Clé secrète webhook'),
-                        'desc' => $this->l('Clé secrète pour valider la provenance des webhooks.'),
-                    ],
-                ],
+                'input' => $inputs,
                 'submit' => [
                     'title' => $this->l('Enregistrer'),
                 ],
@@ -220,122 +250,80 @@ class Pricee extends Module
     }
 
     /**
-     * Set values for the inputs.
+     * Save form data at the level of the back-office context.
      */
-    protected function getConfigFormValues()
+    protected function postProcess()
+    {
+        $settings = new SettingsService();
+        $values = [];
+        foreach (array_merge(SettingsService::CREDENTIAL_KEYS, SettingsService::WEBHOOK_KEYS) as $key) {
+            $values[$key] = (string) Tools::getValue($key);
+        }
+
+        $settings->save($values, (bool) Tools::getValue('PRICEE_SHARED_CREDENTIALS'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function switchInput(string $name, string $label, string $desc): array
     {
         return [
-            'PRICEE_CLIENT_ID' => Configuration::get('PRICEE_CLIENT_ID', null),
-            'PRICEE_API_KEY' => Configuration::get('PRICEE_API_KEY', null),
-            'PRICEE_WEBHOOK_ENABLED' => Configuration::get('PRICEE_WEBHOOK_ENABLED', null),
-            'PRICEE_WEBHOOK_SECRET' => Configuration::get('PRICEE_WEBHOOK_SECRET', null),
+            'col' => 3,
+            'type' => 'switch',
+            'label' => $label,
+            'name' => $name,
+            'is_bool' => true,
+            'values' => [
+                ['id' => $name.'_on', 'value' => 1, 'label' => $this->l('Oui')],
+                ['id' => $name.'_off', 'value' => 0, 'label' => $this->l('Non')],
+            ],
+            'desc' => $desc,
         ];
     }
 
     /**
-     * Values of the read-only webhook URL fields, which are not saved.
-     *
-     * @return array<string, string>
+     * Name of the level the form edits, shown in its title.
      */
-    protected function getWebhookUrlValues(): array
+    private function scopeLabel(string $scope): string
     {
-        $values = [];
-        foreach ($this->getWebhookUrls() as $name => $webhookUrl) {
-            $values[$name] = $webhookUrl['url'];
-        }
+        switch ($scope) {
+            case SettingsService::SCOPE_SHOP:
+                return sprintf($this->l('Boutique : %s'), $this->context->shop->name);
 
-        return $values;
-    }
+            case SettingsService::SCOPE_GROUP:
+                $group = new ShopGroup((int) Shop::getContextShopGroupID());
 
-    /**
-     * Save form data.
-     */
-    protected function postProcess()
-    {
-        $form_values = $this->getConfigFormValues();
+                return sprintf($this->l('Groupe : %s'), $group->name);
 
-        foreach (array_keys($form_values) as $key) {
-            $value = trim((string) Tools::getValue($key));
+            case SettingsService::SCOPE_ALL:
+                return $this->l('Toutes les boutiques');
 
-            // Password inputs are not repopulated by the form: an empty
-            // submitted value means "keep the stored one", not "erase it".
-            if ('' === $value && 'PRICEE_API_KEY' === $key) {
-                continue;
-            }
-
-            Configuration::updateValue($key, $value);
+            default:
+                return (string) $this->context->shop->name;
         }
     }
 
     /**
-     * Read-only webhook URL fields. In multistore every shop receives its
-     * webhook on its own URL, so each shop of the context gets its own
-     * field, labelled with the shop name.
-     *
-     * @return array<int, array<string, mixed>>
+     * Which shops the credentials being edited apply to, in multistore.
      */
-    private function getWebhookUrlInputs(): array
+    private function credentialsHelp(SettingsService $settings): string
     {
-        $webhookUrls = $this->getWebhookUrls();
-        $multiShop = count($webhookUrls) > 1;
-
-        $inputs = [];
-        foreach ($webhookUrls as $name => $webhookUrl) {
-            $inputs[] = [
-                'col' => 5,
-                'type' => 'text',
-                'label' => $multiShop
-                    ? sprintf($this->l('URL du Webhook (%s)'), $webhookUrl['shop'])
-                    : $this->l('URL du Webhook'),
-                'name' => $name,
-                'readonly' => true,
-                'prefix' => '<i class="icon icon-link"></i>',
-            ];
+        $scope = $settings->scope();
+        if (!in_array($scope, [SettingsService::SCOPE_ALL, SettingsService::SCOPE_GROUP], true)) {
+            return '';
         }
 
-        $lastIndex = count($inputs) - 1;
-        $inputs[$lastIndex]['desc'] = $multiShop
-            ? $this->l('Copiez chaque URL dans la configuration du webhook de la boutique correspondante sur Pricee.io.')
-            : $this->l('Copiez cette URL pour configurer le webhook dans Pricee.io.');
+        $applies = SettingsService::SCOPE_ALL === $scope
+            ? $this->l('Ces identifiants s\'appliquent à toutes les boutiques')
+            : $this->l('Ces identifiants s\'appliquent à toutes les boutiques du groupe');
 
-        return $inputs;
-    }
-
-    /**
-     * Webhook URL of each shop of the back-office context, keyed by the
-     * name of its read-only form field. Outside multistore, or with a
-     * single shop in context, only the current shop's URL is returned.
-     *
-     * @return non-empty-array<string, array{shop: string, url: string}>
-     */
-    private function getWebhookUrls(): array
-    {
-        $webhookUrls = [];
-
-        if (Shop::isFeatureActive()) {
-            foreach (Shop::getContextListShopID() as $idShop) {
-                $shop = new Shop((int) $idShop);
-                if (!Validate::isLoadedObject($shop)) {
-                    continue;
-                }
-
-                $webhookUrls['PRICEE_WEBHOOK_URL_DISPLAY_'.(int) $shop->id] = [
-                    'shop' => $shop->name,
-                    'url' => $this->context->link->getModuleLink($this->name, 'webhook', [], true, null, (int) $shop->id),
-                ];
-            }
+        $overrides = $settings->credentialOverrides();
+        if ([] === $overrides) {
+            return $applies.'.';
         }
 
-        if (count($webhookUrls) < 2) {
-            $webhookUrls = [
-                'PRICEE_WEBHOOK_URL_DISPLAY' => [
-                    'shop' => (string) $this->context->shop->name,
-                    'url' => $this->context->link->getModuleLink($this->name, 'webhook', [], true),
-                ],
-            ];
-        }
-
-        return $webhookUrls;
+        return htmlspecialchars($applies.', '.$this->l('sauf celles qui ont leurs propres identifiants :').' '.implode(', ', $overrides).'.', ENT_QUOTES, 'UTF-8');
     }
 
     /**
