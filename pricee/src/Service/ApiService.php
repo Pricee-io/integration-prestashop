@@ -152,6 +152,13 @@ class ApiService
             $products = $this->lookupProducts($bearer, $websiteUuid, 'extId', $productExtId);
             if (empty($products)) {
                 $products = $this->lookupProducts($bearer, $websiteUuid, 'url', $productUrl);
+
+                // Only a product synced without extId can be adopted by URL:
+                // one with another extId belongs to another shop product
+                $owner = $products[0]['extId'] ?? null;
+                if (null !== $owner && '' !== $owner) {
+                    throw new \RuntimeException(sprintf('URL %s is already tracked on Pricee for product ID %s', $productUrl, (string) $owner));
+                }
             }
 
             if (!empty($products)) {

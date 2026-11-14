@@ -87,6 +87,23 @@ class ApiServiceTest extends TestCase
         $this->assertSame([], $this->api->requestsTo('POST', 'website_products'));
     }
 
+    public function testUrlTrackedForAnotherProductIsNotTakenOver(): void
+    {
+        // E.g. a deleted product whose URL is now used by another one
+        $this->api->addProduct('https://shop.example/p/1', '99');
+
+        try {
+            $this->service->createOrUpdateProduct('token', self::WEBSITE_ID, 'https://shop.example/p/1', '1');
+            $this->fail('The product should be reported in error');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('already tracked on Pricee for product ID 99', $e->getMessage());
+        }
+
+        $this->assertSame([], $this->api->requestsTo('PATCH', 'website_products'));
+        $this->assertSame([], $this->api->requestsTo('POST', 'website_products'));
+        $this->assertSame('99', $this->api->products[0]['extId']);
+    }
+
     public function testLookupsAreScopedToTheWebsite(): void
     {
         $this->service->createOrUpdateProduct('token', self::WEBSITE_ID, 'https://shop.example/p/1', '1');

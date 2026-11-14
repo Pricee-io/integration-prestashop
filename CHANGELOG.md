@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Match webhook updates to the right product: an unknown product ID is skipped instead of being looked up by URL, and a URL only matches the product whose name it contains
 - Keep receiving webhook price updates while the shop is in maintenance mode
 - Fix the API key field being narrower than the other settings fields
+- Multistore: a shop switching to its own credentials must enter its own API key instead of silently keeping the shared one
+- Show a confirmation when the settings are saved
+- Only employees allowed to configure the module can run a sync
+- During sync, a product whose URL is already tracked for another product is reported in error instead of taking over its tracking
+- Keep the price per unit (e.g. per kg) consistent when the webhook changes a product's price
+- Skip webhook price updates when visitors see no prices (catalog mode, or prices hidden for the visitor group)
+- No longer rewrite a product's price through the webhook when the price visitors see does not change
+- Reject replayed webhook calls reliably, even when several calls arrive at the same time
+- Fix the module being disabled when upgrading from version 1.0.0
 - Support PrestaShop 9.2.1
 
 ## [1.3.5] - 2026-11-04

@@ -16,8 +16,11 @@ class WebhookService
     /** How long a used nonce is remembered, in seconds (twice the max age) */
     public const NONCE_TTL = 600;
 
-    /** Configuration key storing the hashes of the nonces already used */
-    public const NONCE_CONFIGURATION_KEY = 'PRICEE_WEBHOOK_NONCES';
+    /**
+     * Table of the nonces already used, without prefix: one row per shop and
+     * nonce hash, the primary key makes consuming a nonce atomic.
+     */
+    public const NONCE_TABLE = 'pricee_webhook_nonce';
 
     /**
      * Outcome of each entry. The price is written only when every rule
@@ -38,6 +41,7 @@ class WebhookService
     public const SKIPPED_ECOTAX = 'skipped_ecotax';
     public const SKIPPED_GROUP_DISCOUNT = 'skipped_group_discount';
     public const SKIPPED_BELOW_COST = 'skipped_below_cost';
+    public const SKIPPED_UNIT_PRICE = 'skipped_unit_price';
     public const FAILED = 'failed';
 
     /**
@@ -139,6 +143,9 @@ class WebhookService
         if (!$product->active || (!$product->available_for_order && !$product->show_price)) {
             return $this->skip(self::SKIPPED_PRICE_NOT_SHOWN, 'disabled or price not shown', $product);
         }
+        if (!$this->pricesShownToVisitors($idShop)) {
+            return $this->skip(self::SKIPPED_PRICE_NOT_SHOWN, 'prices are hidden from visitors (catalog mode or visitor group)', $product);
+        }
 
         // Only simple products: the page of a product with variants shows
         // the default variant's price, a pack's price is computed. Any
@@ -166,16 +173,31 @@ class WebhookService
             return $this->skip(self::SKIPPED_GROUP_DISCOUNT, 'visitors get a group discount', $product);
         }
 
-        $newPrice = $this->toStoredPrice($product, (float) $rawPrice, $idShop);
+        $displayFactor = $this->displayFactor($product, $idShop);
+        $newPrice = round((float) $rawPrice / $displayFactor, 6);
 
         // Never sell below the cost price
         if ((float) $product->wholesale_price > 0 && $newPrice < (float) $product->wholesale_price) {
             return $this->skip(self::SKIPPED_BELOW_COST, 'new price '.$newPrice.' is below the cost price '.$product->wholesale_price, $product);
         }
 
+        // Compared as visitors see it, rounded to the currency precision: a
+        // stored price differing only in its hidden decimals is unchanged
         $currentPrice = (float) $product->price;
-        if (abs($currentPrice - $newPrice) < 0.000001) {
+        $precision = max(0, (int) $shopCurrency->precision);
+        if (abs(round($currentPrice * $displayFactor, $precision) - round((float) $rawPrice, $precision)) < 0.000001) {
             return self::UNCHANGED;
+        }
+
+        // The price per unit (e.g. per kg) keeps its ratio to the price. Since
+        // PrestaShop 8 the unit price is stored and would otherwise stay at
+        // its old value; before, it is computed from the ratio, which is kept
+        $currentUnitPrice = (float) $product->unit_price;
+        if ($currentUnitPrice > 0) {
+            if ($currentPrice <= 0) {
+                return $this->skip(self::SKIPPED_UNIT_PRICE, 'has a unit price but no current price to scale it from', $product);
+            }
+            $product->unit_price = round($currentUnitPrice * $newPrice / $currentPrice, 6);
         }
 
         try {
@@ -222,12 +244,15 @@ class WebhookService
      * window. The app signs a whole batch with a single nonce, so each
      * distinct nonce is consumed only once per payload.
      *
+     * Each nonce is consumed by an insert on the table's primary key, which
+     * the database makes atomic: of two calls carrying the same nonce at the
+     * same time, only one gets through.
+     *
      * @param array<int, mixed> $data
      */
     private function validateReplayProtection(array $data, int $idShop, int $now): void
     {
-        $usedNonces = $this->getUsedNonces($idShop, $now);
-        $freshNonces = [];
+        $nonceHashes = [];
 
         foreach ($data as $productData) {
             if (!is_array($productData)
@@ -243,51 +268,25 @@ class WebhookService
                 throw new WebhookRejectedException('Expired webhook payload', 401);
             }
 
-            $nonceHash = hash('sha256', $productData['nonce']);
-            if (isset($freshNonces[$nonceHash])) {
-                continue;
-            }
+            $nonceHashes[hash('sha256', $productData['nonce'])] = true;
+        }
 
-            if (isset($usedNonces[$nonceHash])) {
+        $db = \Db::getInstance();
+        $table = _DB_PREFIX_.self::NONCE_TABLE;
+
+        // Expired nonces are forgotten: their payloads are refused as stale
+        $db->execute('DELETE FROM `'.$table.'` WHERE expires_at <= '.$now);
+
+        foreach (array_keys($nonceHashes) as $nonceHash) {
+            $inserted = $db->execute(
+                'INSERT IGNORE INTO `'.$table.'` (id_shop, nonce_hash, expires_at)
+                VALUES ('.$idShop.', \''.pSQL((string) $nonceHash).'\', '.($now + self::NONCE_TTL).')',
+                false
+            );
+            if (!$inserted || 1 !== (int) $db->Affected_Rows()) {
                 throw new WebhookRejectedException('Replayed webhook payload', 401);
             }
-
-            $freshNonces[$nonceHash] = true;
-            $usedNonces[$nonceHash] = $now + self::NONCE_TTL;
         }
-
-        if (!empty($freshNonces)) {
-            \Configuration::updateValue(self::NONCE_CONFIGURATION_KEY, json_encode($usedNonces), false, null, $idShop);
-        }
-    }
-
-    /**
-     * Hashes of the nonces already used, keyed by hash with their expiry
-     * timestamp. Expired nonces are dropped, which gives the stored value a
-     * time to live like a transient.
-     *
-     * @return array<string, int>
-     */
-    private function getUsedNonces(int $idShop, int $now): array
-    {
-        $rawNonces = \Configuration::get(self::NONCE_CONFIGURATION_KEY, null, null, $idShop);
-        if (!is_string($rawNonces) || '' === $rawNonces) {
-            return [];
-        }
-
-        $nonces = json_decode($rawNonces, true);
-        if (!is_array($nonces)) {
-            return [];
-        }
-
-        $validNonces = [];
-        foreach ($nonces as $nonceHash => $expiry) {
-            if (is_int($expiry) && $expiry > $now) {
-                $validNonces[(string) $nonceHash] = $expiry;
-            }
-        }
-
-        return $validNonces;
     }
 
     /**
@@ -360,7 +359,7 @@ class WebhookService
 
                 // <id>-[<id_product_attribute>-]<rewrite>.html
                 $prefixMatch = $idProduct === $idPrefix
-                    && substr($matches[2], -strlen($rewrite)) === $rewrite;
+                    && ($matches[2] === $rewrite || 1 === preg_match('/^\d+-'.preg_quote($rewrite, '/').'$/', $matches[2]));
                 // <rewrite>-<id>.html
                 $suffixMatch = $idProduct === $idSuffix && $matches[3] === $rewrite;
                 if ($prefixMatch || $suffixMatch) {
@@ -375,21 +374,35 @@ class WebhookService
     }
 
     /**
-     * Convert a price as displayed to visitors (what Pricee reads on product
-     * pages) into the tax-excluded amount PrestaShop stores.
+     * Factor from the tax-excluded price PrestaShop stores to the price
+     * displayed to visitors (what Pricee reads on product pages): 1 when
+     * visitors see prices tax excluded, 1 + the tax rate otherwise.
      */
-    private function toStoredPrice(\Product $product, float $displayedPrice, int $idShop): float
+    private function displayFactor(\Product $product, int $idShop): float
     {
         if (PS_TAX_EXC === (int) \Group::getPriceDisplayMethod($this->visitorGroupId($idShop))) {
-            return $displayedPrice;
+            return 1.0;
         }
 
         // Visitors see the prices of the shop default country
         $address = new \Address();
         $address->id_country = (int) \Configuration::get('PS_COUNTRY_DEFAULT', null, null, $idShop);
-        $taxRate = (float) $product->getTaxesRate($address);
 
-        return round($displayedPrice / (1 + $taxRate / 100), 6);
+        return 1 + (float) $product->getTaxesRate($address) / 100;
+    }
+
+    /**
+     * Whether visitors see prices at all: catalog mode (unless set to show
+     * prices) and the visitor group's "show prices" option hide them.
+     */
+    private function pricesShownToVisitors(int $idShop): bool
+    {
+        if (\Configuration::get('PS_CATALOG_MODE', null, null, $idShop)
+            && !\Configuration::get('PS_CATALOG_MODE_WITH_PRICES', null, null, $idShop)) {
+            return false;
+        }
+
+        return !\Group::isFeatureActive() || (bool) (new \Group($this->visitorGroupId($idShop)))->show_prices;
     }
 
     /**

@@ -121,6 +121,36 @@ class SettingsServiceTest extends IntegrationTestCase
         $this->assertFalse($this->settings->usesSharedCredentials());
     }
 
+    public function testShopSwitchingToOwnCredentialsRequiresAnApiKey(): void
+    {
+        $this->setMultistore(true);
+        \Configuration::updateGlobalValue('PRICEE_CLIENT_ID', 'shared-client');
+        \Configuration::updateGlobalValue('PRICEE_API_KEY', 'shared-key');
+        $this->setContext(\Shop::CONTEXT_SHOP, $this->shopId());
+
+        // The password field is never filled in: left empty, the shop would
+        // keep the shared key behind its own client ID
+        $errors = $this->settings->save(['PRICEE_API_KEY' => ''] + $this->values(), false);
+
+        $this->assertSame([SettingsService::ERROR_API_KEY_REQUIRED], $errors);
+        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, $this->shopId()), 'nothing is saved');
+        $this->assertNull($this->storedValue('PRICEE_WEBHOOK_SECRET', null, $this->shopId()));
+        $this->resetCaches();
+        $this->assertTrue($this->settings->usesSharedCredentials());
+    }
+
+    public function testShopWithItsOwnApiKeyKeepsItWhenLeftEmpty(): void
+    {
+        $this->setMultistore(true);
+        \Configuration::updateValue('PRICEE_CLIENT_ID', 'own-client', false, null, $this->shopId());
+        \Configuration::updateValue('PRICEE_API_KEY', 'own-key', false, null, $this->shopId());
+        $this->setContext(\Shop::CONTEXT_SHOP, $this->shopId());
+
+        $this->assertSame([], $this->settings->save(['PRICEE_API_KEY' => ''] + $this->values(), false));
+        $this->assertSame('own-key', $this->storedValue('PRICEE_API_KEY', null, $this->shopId()));
+        $this->assertSame('client', $this->storedValue('PRICEE_CLIENT_ID', null, $this->shopId()));
+    }
+
     public function testShopSwitchingToSharedCredentialsDropsItsOwn(): void
     {
         $this->setMultistore(true);

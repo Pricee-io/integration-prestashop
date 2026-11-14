@@ -27,7 +27,7 @@ With multistore, the form title shows the level being edited ("Configuration —
 
 - **Pricee credentials** (ID Client, Clé API): shared by default.
   - For all shops or a group: the credentials apply to every shop (of the group), and the help text lists the shops and groups that use their own credentials instead.
-  - For one shop: a switch "Utiliser les identifiants communs". Yes (default): the shop uses the shared credentials, its credential fields are disabled, and saving removes any credentials of its own. No: the shop uses the credentials entered below.
+  - For one shop: a switch "Utiliser les identifiants communs". Yes (default): the shop uses the shared credentials, its credential fields are disabled, and saving removes any credentials of its own. No: the shop uses the credentials entered below; when the shop has no API key of its own yet, the Clé API must be filled in, otherwise nothing is saved and an error asks for it.
 - **Webhook settings** (activation, URL, secret key): per shop only, because each shop is its own website with its own webhook on Pricee. For all shops or a group, they are replaced by a note asking to select a shop.
 
 ### Sync block
@@ -35,7 +35,7 @@ With multistore, the form title shows the level being edited ("Configuration —
 - **Boutique à synchroniser**: dropdown, only shown when several shops are in the back-office context. The current shop is preselected.
 - **Category list** of the selected shop, with checkboxes. Each line shows the category name and the number of active products in that shop. Disabled categories are listed too, greyed out with "désactivée".
 - Not listed: the root category and the shop's home category (every product is in it, so it would mean the whole catalog), and categories outside the shop's own tree.
-- **Synchroniser les produits** button: runs the sync. It asks to select a category if none is checked, shows the progress ("Synchronisation en cours : X / total") and ends with "N produits synchronisés", plus the number of products in error if any (details in the PrestaShop logs). If the sync stops on an error, the message says how many products were synced before it.
+- **Synchroniser les produits** button: runs the sync (only for employees allowed to configure the module). It asks to select a category if none is checked, shows the progress ("Synchronisation en cours : X / total") and ends with "N produits synchronisés", plus the number of products in error if any (details in the PrestaShop logs). If the sync stops on an error, the message says how many products were synced before it.
 
 ## Sync (shop → Pricee)
 
@@ -48,7 +48,7 @@ When the button is clicked, for the selected shop:
    - `url`: the product page URL on the shop, in the shop's default language.
    - `extId`: the PrestaShop product ID.
 5. On the Pricee side, for each product:
-   - Look for an existing product of that website by `extId`, then by `url` (exact match, trailing `/` ignored). A product is never matched to another product's entry.
+   - Look for an existing product of that website by `extId`, then by `url` (exact match, trailing `/` ignored). A product is never matched to another product's entry: an entry found by URL is only adopted if it has no `extId`; if its `extId` is another product's, the product is in error (logged) and nothing is changed on Pricee.
    - Found: update its `url` and/or `extId` if they changed, otherwise do nothing.
    - Not found: create it.
 6. A product that fails is logged in PrestaShop logs and skipped; the sync goes on. The displayed count is the number of products sent successfully.
@@ -65,7 +65,7 @@ Pricee calls `https://<shop>/module/pricee/webhook` with a list of products and 
 - the webhook is disabled or has no secret for this shop;
 - the signature does not match the secret;
 - the body is not a valid JSON list;
-- an entry has no timestamp or no nonce, a timestamp more than 5 minutes off, or a nonce already used (replay protection; used nonces are remembered for 10 minutes).
+- an entry has no timestamp or no nonce, a timestamp more than 5 minutes off, or a nonce already used (replay protection; used nonces are remembered for 10 minutes, per shop, and a nonce is accepted only once even when several calls arrive at the same time).
 
 The webhook still works when the shop is in maintenance mode or restricts countries.
 
@@ -81,17 +81,19 @@ Writing a price is the critical action of the module, so the rule is: **when in 
 | 4 | Product found | With an `extId`: no product has that ID (never falls back to the URL). Without `extId` (products synced before it existed): the URL does not point to an existing product, or the name in the URL is not that product's own. |
 | 5 | Sent once | The same product is targeted by several entries of the call: none of them is applied. |
 | 6 | Shop | The product is not associated with the shop receiving the call. |
-| 7 | Price shown | The product is disabled, or its price is hidden (not available for order and "show price" off). |
+| 7 | Price shown | The product is disabled, its price is hidden (not available for order and "show price" off), or visitors see no prices at all (catalog mode without prices, or "show prices" off for the visitor group). |
 | 8 | Simple product | The product has variants (combinations) or is a pack. |
 | 9 | No promotion | Any promotion, quantity discount or catalog price rule exists for this product in this shop or for all shops, for anyone (any customer, group, currency, country), current or scheduled. Only expired ones and those of other shops are ignored. Promotions are never created or edited. |
 | 10 | No ecotax | Ecotax is enabled and the product has an ecotax (the displayed price includes it). |
 | 11 | No group discount | Visitors (not logged in) get a customer group discount, globally or on the product's category. |
 | 12 | Not below cost | The new price, tax excluded, is below the product's cost price (when one is set). |
-| 13 | Changed | The new price is the current one: nothing is written. |
+| 13 | Changed | The new price is the current one as visitors see it (rounded to the currency's decimals): nothing is written. |
+| 14 | Unit price | The product has a price per unit (e.g. per kg) but a current price of 0, so its unit price cannot be adjusted. |
 
 When every check passes, the **base price** of the product is replaced:
 
 - The received price is the price visitors see. If the shop displays prices tax included to visitors, the tax of the shop's default country is removed first (PrestaShop stores prices tax excluded).
+- The price per unit (e.g. per kg), when set, changes in the same proportion, so it stays consistent with the new price.
 - Nothing else changes: no promotion, no other shop's price (in multistore, the price is written for the receiving shop only).
 
 There is no limit on the size of a change on the plugin side: Pricee only sends prices within the margin set for the website or the product.
@@ -100,8 +102,9 @@ The call answers 200 "Webhook received and validated" even when some entries wer
 
 ## Install / uninstall
 
-- Install: creates the settings (empty) and an empty `pricee` table.
-- Uninstall: deletes all the settings for every shop. The `pricee` table is kept (it is unused).
+- Install: creates the settings (empty) and the `pricee_webhook_nonce` table (nonces of recent webhook calls).
+- Upgrade to 1.4.0: creates that table, drops the unused `pricee` table of earlier versions and the nonces they stored in the settings.
+- Uninstall: deletes all the settings for every shop and the `pricee_webhook_nonce` table (temporary data only).
 
 ## Tests
 

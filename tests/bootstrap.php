@@ -42,3 +42,12 @@ if (0 !== strpos(_DB_NAME_, 'test_')) {
 
     exit(1);
 }
+
+// Module tables, in case the dev database the test one is copied from was
+// installed with an older version of the module (idempotent; run outside of
+// the test transactions, as creating a table commits)
+if (!include __DIR__.'/../pricee/sql/install.php') {
+    fwrite(STDERR, "Could not create the module tables.\n");
+
+    exit(1);
+}

@@ -30,6 +30,17 @@ class SyncController extends FrameworkBundleAdminController
             ], 403);
         }
 
+        // Same right as the module page the sync is started from
+        $employee = \Context::getContext()->employee;
+        $idModule = (int) \Module::getModuleIdByName('pricee');
+        if (!$employee instanceof \Employee || !\Module::getPermissionStatic($idModule, 'configure', $employee)) {
+            return new JsonResponse([
+                'success' => false,
+                'synced' => 0,
+                'error' => 'Access denied',
+            ], 403);
+        }
+
         $idShop = (int) $request->request->get('id_shop');
         $categories = array_map('intval', (array) ($request->request->all()['categories'] ?? []));
         // Batch cursor: the sync goes on after the last product of the previous batch

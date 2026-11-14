@@ -24,11 +24,16 @@
  *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  *  International Registered Trademark & Property of PrestaShop SA
  */
+// Nonces of the webhook calls already received (replay protection): the
+// primary key makes consuming a nonce atomic, see WebhookService
 $sql = [];
 
-$sql[] = 'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'pricee` (
-    `id_pricee` int(11) NOT NULL AUTO_INCREMENT,
-    PRIMARY KEY  (`id_pricee`)
+$sql[] = 'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'pricee_webhook_nonce` (
+    `id_shop` int(10) unsigned NOT NULL,
+    `nonce_hash` char(64) NOT NULL,
+    `expires_at` int(10) unsigned NOT NULL,
+    PRIMARY KEY (`id_shop`, `nonce_hash`),
+    KEY `expires_at` (`expires_at`)
 ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8;';
 
 foreach ($sql as $query) {
@@ -36,3 +41,5 @@ foreach ($sql as $query) {
         return false;
     }
 }
+
+return true;

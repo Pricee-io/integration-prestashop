@@ -26,6 +26,9 @@ class SettingsService
     public const CREDENTIAL_KEYS = ['PRICEE_CLIENT_ID', 'PRICEE_API_KEY'];
     public const WEBHOOK_KEYS = ['PRICEE_WEBHOOK_ENABLED', 'PRICEE_WEBHOOK_SECRET'];
 
+    /** A shop switching to its own credentials submitted no API key */
+    public const ERROR_API_KEY_REQUIRED = 'api_key_required';
+
     /**
      * Level the back-office context edits.
      */
@@ -115,14 +118,26 @@ class SettingsService
     }
 
     /**
-     * Save the submitted settings at the level of the context.
+     * Save the submitted settings at the level of the context. Nothing is
+     * saved when an error is returned.
      *
      * @param array<string, string> $values               submitted values, by configuration key
      * @param bool                  $useSharedCredentials shop scope: drop the shop's own credentials
+     *
+     * @return array<string> errors (ERROR_* constants), empty when saved
      */
-    public function save(array $values, bool $useSharedCredentials = false): void
+    public function save(array $values, bool $useSharedCredentials = false): array
     {
         $scope = $this->scope();
+
+        // An empty API key keeps the current one, which for a shop switching
+        // to its own credentials is the shared key: its "own" credentials
+        // would silently mix its client ID with the shared key
+        if (self::SCOPE_SHOP === $scope && !$useSharedCredentials
+            && '' === trim((string) ($values['PRICEE_API_KEY'] ?? ''))
+            && !$this->shopHasOwnValue('PRICEE_API_KEY', (int) \Shop::getContextShopID())) {
+            return [self::ERROR_API_KEY_REQUIRED];
+        }
 
         if (self::SCOPE_SHOP === $scope && $useSharedCredentials) {
             foreach (self::CREDENTIAL_KEYS as $key) {
@@ -148,6 +163,16 @@ class SettingsService
                 \Configuration::updateValue($key, trim((string) ($values[$key] ?? '')));
             }
         }
+
+        return [];
+    }
+
+    private function shopHasOwnValue(string $key, int $idShop): bool
+    {
+        return (bool) \Db::getInstance()->getValue(
+            'SELECT 1 FROM '._DB_PREFIX_.'configuration
+            WHERE name = \''.pSQL($key).'\' AND id_shop = '.$idShop
+        );
     }
 
     /**

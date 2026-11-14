@@ -31,7 +31,7 @@ class WebhookServiceTest extends IntegrationTestCase
 
         $this->setConfiguration('PRICEE_WEBHOOK_ENABLED', 1);
         $this->setConfiguration('PRICEE_WEBHOOK_SECRET', self::SECRET);
-        $this->setConfiguration(WebhookService::NONCE_CONFIGURATION_KEY, '');
+        \Db::getInstance()->delete(WebhookService::NONCE_TABLE);
         // Prices as stored, unless a test switches to tax-included display
         $this->setVisitorPricesTaxIncluded(false);
 
@@ -161,6 +161,32 @@ class WebhookServiceTest extends IntegrationTestCase
         );
     }
 
+    public function testNonceAlreadyConsumedByAnotherCallIsRejected(): void
+    {
+        // Recorded by a concurrent call handled first: the insert of the
+        // same nonce fails, whatever this call read before
+        $entries = [$this->entry()];
+        \Db::getInstance()->insert(WebhookService::NONCE_TABLE, [
+            'id_shop' => $this->shopId(),
+            'nonce_hash' => hash('sha256', $entries[0]['nonce']),
+            'expires_at' => time() + WebhookService::NONCE_TTL,
+        ]);
+
+        $this->assertRejected(401, 'Replayed webhook payload', fn () => $this->send($entries));
+    }
+
+    public function testNonceUsedInAnotherShopIsAccepted(): void
+    {
+        $entries = [$this->entry()];
+        \Db::getInstance()->insert(WebhookService::NONCE_TABLE, [
+            'id_shop' => $this->shopId() + 1000,
+            'nonce_hash' => hash('sha256', $entries[0]['nonce']),
+            'expires_at' => time() + WebhookService::NONCE_TTL,
+        ]);
+
+        $this->assertSame([WebhookService::SKIPPED_UNKNOWN_PRODUCT], $this->send($entries));
+    }
+
     public function testBatchSharingOneNonceIsAccepted(): void
     {
         $first = $this->createProduct('Pricee first');
@@ -237,6 +263,29 @@ class WebhookServiceTest extends IntegrationTestCase
 
         $this->assertSame([WebhookService::SKIPPED_UNKNOWN_PRODUCT], $outcomes);
         $this->assertProductPrice($product, 10.0);
+    }
+
+    public function testRewrittenUrlOnlyEndingWithTheProductNameIsSkipped(): void
+    {
+        $product = $this->createProduct('Pricee Rewrite Product');
+
+        $outcomes = $this->send([
+            $this->entry(['extId' => null, 'url' => 'https://shop.example/'.$product->id.'-other-pricee-rewrite-product.html']),
+        ]);
+
+        $this->assertSame([WebhookService::SKIPPED_UNKNOWN_PRODUCT], $outcomes);
+        $this->assertProductPrice($product, 10.0);
+    }
+
+    public function testRewrittenUrlWithACombinationIdMatches(): void
+    {
+        $product = $this->createProduct('Pricee Rewrite Product');
+
+        $outcomes = $this->send([
+            $this->entry(['extId' => null, 'url' => 'https://shop.example/'.$product->id.'-12-pricee-rewrite-product.html']),
+        ]);
+
+        $this->assertSame([WebhookService::UPDATED_PRICE], $outcomes);
     }
 
     public function testProductNotAssociatedWithTheShopIsSkipped(): void
@@ -497,6 +546,36 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->assertProductPrice($product, 10.0);
     }
 
+    public function testCatalogModeSkipsTheUpdate(): void
+    {
+        $product = $this->createProduct();
+        $this->setConfiguration('PS_CATALOG_MODE', 1);
+        $this->setConfiguration('PS_CATALOG_MODE_WITH_PRICES', 0);
+
+        $this->assertSame([WebhookService::SKIPPED_PRICE_NOT_SHOWN], $this->send([$this->entry(['extId' => (string) $product->id])]));
+        $this->assertProductPrice($product, 10.0);
+    }
+
+    public function testCatalogModeShowingPricesDoesNotBlockTheUpdate(): void
+    {
+        $product = $this->createProduct();
+        $this->setConfiguration('PS_CATALOG_MODE', 1);
+        $this->setConfiguration('PS_CATALOG_MODE_WITH_PRICES', 1);
+
+        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id])]));
+    }
+
+    public function testVisitorGroupNotShownPricesSkipsTheUpdate(): void
+    {
+        $product = $this->createProduct();
+        $this->setConfiguration('PS_GROUP_FEATURE_ACTIVE', 1);
+        \Db::getInstance()->update('group', ['show_prices' => 0], 'id_group = '.(int) \Configuration::get('PS_UNIDENTIFIED_GROUP'));
+        $this->resetCaches();
+
+        $this->assertSame([WebhookService::SKIPPED_PRICE_NOT_SHOWN], $this->send([$this->entry(['extId' => (string) $product->id])]));
+        $this->assertProductPrice($product, 10.0);
+    }
+
     // ---------------------------------------------------------------
     // Safety rules on the new price
     // ---------------------------------------------------------------
@@ -539,6 +618,34 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct();
 
         $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 10])]));
+    }
+
+    public function testSameDisplayedPriceIsNotRewritten(): void
+    {
+        // 8.33333 + 20% is 9.999996, shown as 10.00: receiving 10 is no change
+        $product = $this->createProduct('Pricee taxed product', 8.33333, [], $this->createTaxRulesGroup(20.0));
+        $this->setVisitorPricesTaxIncluded(true);
+
+        $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 10])]));
+        $this->assertProductPrice($product, 8.33333);
+    }
+
+    public function testUnitPriceFollowsTheNewPrice(): void
+    {
+        // 10 for 2 kg: 5 per kg. PrestaShop 8+ stores the unit price, older
+        // versions the ratio; both are set like the product page would
+        $product = $this->createProduct();
+        $product->unit_price = 5;
+        $product->unit_price_ratio = 2;
+        $product->unity = 'kg';
+        $this->assertTrue((bool) $product->update());
+        $this->resetCaches();
+
+        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 8])]));
+
+        $this->resetCaches();
+        $reloaded = new \Product((int) $product->id, false, null, $this->shopId());
+        $this->assertEqualsWithDelta(4.0, (float) $reloaded->unit_price, 0.000001);
     }
 
     public function testProductSentTwiceInTheSameCallIsSkipped(): void

@@ -68,7 +68,9 @@ class Pricee extends Module
         Configuration::updateValue('PRICEE_WEBHOOK_ENABLED', null);
         Configuration::updateValue('PRICEE_WEBHOOK_SECRET', null);
 
-        include __DIR__.'/sql/install.php';
+        if (!include __DIR__.'/sql/install.php') {
+            return false;
+        }
 
         return parent::install()
             && $this->registerHook('displayBackOfficeHeader');
@@ -80,6 +82,7 @@ class Pricee extends Module
         Configuration::deleteByName('PRICEE_API_KEY');
         Configuration::deleteByName('PRICEE_WEBHOOK_ENABLED');
         Configuration::deleteByName('PRICEE_WEBHOOK_SECRET');
+        // Stored the webhook nonces before 1.4.0
         Configuration::deleteByName('PRICEE_WEBHOOK_NONCES');
 
         include __DIR__.'/sql/uninstall.php';
@@ -92,9 +95,9 @@ class Pricee extends Module
      */
     public function getContent()
     {
-        // If values have been submitted in the form, process.
-        if (((bool) Tools::isSubmit('submitPriceeModule')) == true) {
-            $this->postProcess();
+        $notice = '';
+        if (Tools::isSubmit('submitPriceeModule')) {
+            $notice = $this->postProcess();
         }
 
         $router = $this->get('router');
@@ -109,7 +112,7 @@ class Pricee extends Module
             'sync_token' => Tools::getAdminTokenLite('AdminModules'),
         ]);
 
-        $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
+        $output = $notice.$this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
 
         $output .= $this->renderForm();
 
@@ -251,8 +254,10 @@ class Pricee extends Module
 
     /**
      * Save form data at the level of the back-office context.
+     *
+     * @return string confirmation or error message to show
      */
-    protected function postProcess()
+    protected function postProcess(): string
     {
         $settings = new SettingsService();
         $values = [];
@@ -260,7 +265,12 @@ class Pricee extends Module
             $values[$key] = (string) Tools::getValue($key);
         }
 
-        $settings->save($values, (bool) Tools::getValue('PRICEE_SHARED_CREDENTIALS'));
+        $errors = $settings->save($values, (bool) Tools::getValue('PRICEE_SHARED_CREDENTIALS'));
+        if (in_array(SettingsService::ERROR_API_KEY_REQUIRED, $errors, true)) {
+            return $this->displayError($this->l('Saisissez la clé API de cette boutique pour qu\'elle utilise ses propres identifiants. Les réglages n\'ont pas été enregistrés.'));
+        }
+
+        return $this->displayConfirmation($this->l('Réglages enregistrés.'));
     }
 
     /**
