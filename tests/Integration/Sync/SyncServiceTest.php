@@ -86,10 +86,12 @@ class SyncServiceTest extends IntegrationTestCase
         $inactive->active = false;
         $inactive->update();
 
-        $synced = $this->service->sync($this->shopId(), [(int) $checked->id, (int) $alsoChecked->id]);
+        $result = $this->service->sync($this->shopId(), [(int) $checked->id, (int) $alsoChecked->id]);
 
         $sent = $this->sentExtIds();
-        $this->assertSame(2, $synced);
+        $this->assertSame(2, $result['synced']);
+        $this->assertSame(2, $result['total']);
+        $this->assertTrue($result['done']);
         $this->assertEqualsCanonicalizing([(string) $inBoth->id, (string) $inChecked->id], $sent);
         $this->assertNotContains((string) $inUnchecked->id, $sent);
         $this->assertNotContains((string) $inactive->id, $sent);
@@ -102,7 +104,8 @@ class SyncServiceTest extends IntegrationTestCase
         // Active in the default product table, disabled for this shop
         \Db::getInstance()->update('product_shop', ['active' => 0], 'id_product = '.(int) $product->id.' AND id_shop = '.$this->shopId());
 
-        $this->assertSame(0, $this->service->sync($this->shopId(), [(int) $category->id]));
+        $this->assertSame(0, $this->service->sync($this->shopId(), [(int) $category->id])['total']);
+        $this->assertSame([], $this->sentExtIds());
     }
 
     public function testSkipsProductsNotAssociatedWithTheSyncedShop(): void
@@ -111,7 +114,8 @@ class SyncServiceTest extends IntegrationTestCase
         $product = $this->createProduct('Pricee other shop product', 10, [(int) $category->id]);
         \Db::getInstance()->delete('product_shop', 'id_product = '.(int) $product->id.' AND id_shop = '.$this->shopId());
 
-        $this->assertSame(0, $this->service->sync($this->shopId(), [(int) $category->id]));
+        $this->assertSame(0, $this->service->sync($this->shopId(), [(int) $category->id])['total']);
+        $this->assertSame([], $this->sentExtIds());
     }
 
     public function testSendsTheProductPageUrlAndId(): void
@@ -193,11 +197,78 @@ class SyncServiceTest extends IntegrationTestCase
         $this->assertCount(1, $this->api->requestsTo('POST', 'website_products'));
     }
 
-    public function testUsesTheCredentialsOfTheSyncedShop(): void
+    public function testLogsInOncePerBatch(): void
     {
-        $this->service->sync($this->shopId(), []);
+        $category = $this->createCategory('Pricee category');
+        $this->createProduct('Pricee product', 10, [(int) $category->id]);
+
+        $this->service->sync($this->shopId(), [(int) $category->id]);
 
         $this->assertCount(1, $this->api->requestsTo('POST', 'login'));
+    }
+
+    public function testNothingToSyncDoesNotCallPricee(): void
+    {
+        $category = $this->createCategory('Pricee empty category');
+
+        $result = $this->service->sync($this->shopId(), [(int) $category->id]);
+
+        $this->assertSame(['synced' => 0, 'failed' => 0, 'lastId' => 0, 'done' => true, 'total' => 0], $result);
+        $this->assertSame([], $this->api->requests);
+    }
+
+    // ---------------------------------------------------------------
+    // Batches
+    // ---------------------------------------------------------------
+
+    public function testLargeSelectionIsSyncedInBatchesWithoutLimit(): void
+    {
+        $category = $this->createCategory('Pricee large category');
+        $ids = [];
+        for ($i = 1; $i <= 5; ++$i) {
+            $ids[] = (string) $this->createProduct('Pricee batch product '.$i, 10, [(int) $category->id])->id;
+        }
+
+        // Batches of 2, following the cursor like the module page does
+        $batches = [];
+        $afterId = 0;
+        do {
+            $result = $this->service->sync($this->shopId(), [(int) $category->id], $afterId, 2);
+            $batches[] = $result['synced'];
+            $this->assertSame(5, $result['total']);
+            $this->assertGreaterThan($afterId, $result['lastId']);
+            $afterId = $result['lastId'];
+        } while (!$result['done'] && count($batches) < 10);
+
+        $this->assertSame([2, 2, 1], $batches);
+        $this->assertSame($ids, $this->sentExtIds(), 'every product sent once, in ID order');
+        $this->assertSame(end($ids), (string) $afterId);
+    }
+
+    public function testBatchEndingExactlyOnTheLastProductIsDone(): void
+    {
+        $category = $this->createCategory('Pricee category');
+        $this->createProduct('Pricee first', 10, [(int) $category->id]);
+        $this->createProduct('Pricee second', 10, [(int) $category->id]);
+
+        $result = $this->service->sync($this->shopId(), [(int) $category->id], 0, 2);
+
+        $this->assertSame(2, $result['synced']);
+        $this->assertTrue($result['done'], 'no empty extra batch is needed');
+    }
+
+    public function testFailedProductIsCountedAndTheBatchGoesOn(): void
+    {
+        $category = $this->createCategory('Pricee category');
+        $first = $this->createProduct('Pricee first', 10, [(int) $category->id]);
+        $this->createProduct('Pricee second', 10, [(int) $category->id]);
+        $this->api->failProductCreationFor = (string) $first->id;
+
+        $result = $this->service->sync($this->shopId(), [(int) $category->id]);
+
+        $this->assertSame(1, $result['synced']);
+        $this->assertSame(1, $result['failed']);
+        $this->assertTrue($result['done']);
     }
 
     // ---------------------------------------------------------------

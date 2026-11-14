@@ -87,45 +87,92 @@ if (priceeShopSelect) {
     priceeShowShopCategories();
 }
 
+// The sync runs in batches, one request each, so a large selection never
+// hits a timeout: each answer gives the cursor for the next batch.
 document.getElementById('pricee-sync-form').addEventListener('submit', function(e) {
     e.preventDefault();
 
     var form = e.target;
+    var button = form.querySelector('button[type="submit"]');
     var result = document.getElementById('pricee-sync-result');
     var loading = document.getElementById('pricee-sync-loading');
+    var synced = 0;
+    var failed = 0;
 
-    // show loading
+    var show = function(type, message) {
+        result.className = 'alert alert-' + type + ' mt-2';
+        result.innerText = message;
+    };
+
+    var finish = function() {
+        loading.classList.add('d-none');
+        button.disabled = false;
+    };
+
+    var syncedMessage = function() {
+        var message = synced + ' ' + '{l s='produits synchronisés' js=1 mod='pricee'}';
+        if (failed > 0) {
+            message += ', ' + failed + ' ' + '{l s='en erreur (voir les logs PrestaShop)' js=1 mod='pricee'}';
+        }
+
+        return message;
+    };
+
+    var fail = function(error) {
+        finish();
+        var message = '{l s='Erreur lors de la synchronisation' js=1 mod='pricee'}';
+        if (error) {
+            message += ' : ' + error;
+        }
+        if (synced > 0 || failed > 0) {
+            message += ' (' + syncedMessage() + ' {l s='avant l\'erreur' js=1 mod='pricee'})';
+        }
+        show('danger', message);
+    };
+
+    if (!form.querySelector('.pricee-sync-categories:not([disabled]) input[name="categories[]"]:checked')) {
+        show('warning', '{l s='Sélectionnez au moins une catégorie.' js=1 mod='pricee'}');
+
+        return;
+    }
+
+    button.disabled = true;
     loading.classList.remove('d-none');
-    result.classList.add('d-none');
+    result.className = 'd-none';
 
-    fetch('{$ajax_sync_link}', {
-        method: 'POST',
-        body: new FormData(form),
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        loading.classList.add('d-none');
-        result.classList.remove('d-none');
+    var syncBatch = function(afterId) {
+        var body = new FormData(form);
+        body.append('after_id', afterId);
 
-        if (data.success) {
-            result.className = 'alert alert-success mt-2';
-            result.innerText = data.synced + ' ' + '{l s="produits synchronisés" mod="pricee"}';
-        } else {
-            result.className = 'alert alert-danger mt-2';
-            result.innerText = '{l s="Erreur lors de la synchronisation" mod="pricee"}';
-            if (data.error) {
-                result.innerText += ' : ' + data.error;
-            }
-        }
-    })
-    .catch(() => {
-        loading.classList.add('d-none');
-        result.classList.remove('d-none');
-        result.className = 'alert alert-danger mt-2';
-        result.innerText = '{l s="Erreur lors de la synchronisation" mod="pricee"}';
-    });
+        fetch('{$ajax_sync_link}', { method: 'POST', body: body, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                if (!data.success) {
+                    fail(data.error);
+
+                    return;
+                }
+
+                synced += data.synced;
+                failed += data.failed;
+
+                if (data.done) {
+                    finish();
+                    show(failed > 0 ? 'warning' : 'success', syncedMessage());
+
+                    return;
+                }
+
+                show('info', '{l s='Synchronisation en cours :' js=1 mod='pricee'} ' + (synced + failed) + ' / ' + data.total);
+                syncBatch(data.last_id);
+            })
+            .catch(function() {
+                fail('');
+            });
+    };
+
+    syncBatch(0);
 });
 </script>

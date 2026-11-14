@@ -28,7 +28,7 @@ All values are saved for the shop context selected in the back office (a single 
 - **Boutique à synchroniser**: dropdown, only shown when several shops are in the back-office context. The current shop is preselected.
 - **Category list** of the selected shop, with checkboxes. Each line shows the category name and the number of active products in that shop. Disabled categories are listed too, greyed out with "désactivée".
 - Not listed: the root category and the shop's home category (every product is in it, so it would mean the whole catalog), and categories outside the shop's own tree.
-- **Synchroniser les produits** button: runs the sync and shows "N produits synchronisés" or an error.
+- **Synchroniser les produits** button: runs the sync. It asks to select a category if none is checked, shows the progress ("Synchronisation en cours : X / total") and ends with "N produits synchronisés", plus the number of products in error if any (details in the PrestaShop logs). If the sync stops on an error, the message says how many products were synced before it.
 
 ## Sync (shop → Pricee)
 
@@ -36,7 +36,7 @@ When the button is clicked, for the selected shop:
 
 1. Log in to Pricee with the ID Client / Clé API **of that shop**.
 2. Find the Pricee website matching the shop's front URL (its own domain in multistore). The match ignores `http`/`https` and a trailing `/`. If none exists, it is created.
-3. Take the products that are **in the checked categories, associated with the shop and active in that shop**. Each product is sent once, even if it is in several checked categories. **At most 500 products per sync**; the rest are silently ignored.
+3. Take the products that are **in the checked categories, associated with the shop and active in that shop**. Each product is sent once, even if it is in several checked categories. There is no limit on the number of products: they are sent in batches of 50, one request each, so a large catalog never hits a timeout. Steps 1 and 2 are repeated for each batch.
 4. For each product, send to Pricee:
    - `url`: the product page URL on the shop, in the shop's default language.
    - `extId`: the PrestaShop product ID.

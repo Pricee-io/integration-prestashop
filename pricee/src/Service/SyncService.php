@@ -6,7 +6,11 @@ namespace PriceeIO\Service;
 
 class SyncService
 {
-    private const MAX_PRODUCTS = 500;
+    /**
+     * Products synced per request: the page sends one request per batch, so
+     * each stays short whatever the size of the selection (no timeout).
+     */
+    public const BATCH_SIZE = 50;
     private ApiService $apiService;
 
     public function __construct(
@@ -16,13 +20,23 @@ class SyncService
     }
 
     /**
-     * Sync the given categories of a single shop.
+     * Sync one batch of the products of the given categories of a shop: the
+     * next products after $afterId, in product ID order. Called again with
+     * the returned lastId until done.
      *
      * @param array<int> $categories
+     *
+     * @return array{synced: int, failed: int, lastId: int, done: bool, total: int}
      */
-    public function sync(int $idShop, array $categories): int
+    public function sync(int $idShop, array $categories, int $afterId = 0, int $batchSize = self::BATCH_SIZE): array
     {
-        $context = \Context::getContext();
+        $categories = array_map('intval', $categories);
+        $total = $this->countProducts($categories, $idShop);
+        $productIds = $this->nextProductIds($categories, $idShop, $afterId, $batchSize);
+
+        if ([] === $productIds) {
+            return ['synced' => 0, 'failed' => 0, 'lastId' => $afterId, 'done' => true, 'total' => $total];
+        }
 
         // Product URLs are sent in the shop default language: the back-office
         // user's language may not be active in that shop
@@ -64,68 +78,32 @@ class SyncService
             $websiteId = $website['@id'];
         }
 
-        $syncedCount = 0;
-        $this->iterateProducts(
-            array_map('intval', $categories),
-            $idShop,
-            $idLang,
-            self::MAX_PRODUCTS,
-            function (\Product $product) use (
-                $context,
-                &$bearer,
-                &$websiteId,
-                $idLang,
-                $idShop,
-                &$syncedCount
-            ) {
-                // Get the internal PrestaShop product ID
-                $productExtId = (string) $product->id;
+        $synced = 0;
+        $failed = 0;
+        foreach ($productIds as $idProduct) {
+            $product = new \Product($idProduct, false, $idLang, $idShop);
 
-                $forceRoutes = (bool) \Configuration::get('PS_REWRITING_SETTINGS', null, null, $idShop);
-
-                $productUrl = $context->link->getProductLink(
-                    $product,
-                    null,
-                    null,
-                    null,
-                    (int) $idLang,
-                    $idShop,
-                    null,
-                    $forceRoutes
-                );
-
-                // In back-office requests the dispatcher can fall back to the
-                // legacy "product_rule" URL, which is not a valid front-office
-                // route: rewrite it to the standard product URL
-                $normalizedUrl = preg_replace(
-                    '#^(.*index\.php)\?controller=product_rule&id=(\d+).*$#',
-                    '$1?controller=product&id_product=$2',
-                    $productUrl
-                );
-                if (is_string($normalizedUrl)) {
-                    $productUrl = $normalizedUrl;
-                }
-
-                try {
-                    $this->apiService->createOrUpdateProduct(
-                        $bearer,
-                        $websiteId,
-                        $productUrl,
-                        $productExtId,
-                    );
-
-                    ++$syncedCount;
-                } catch (\Exception $e) {
-                    // log the error and go to the next product
-                    \PrestaShopLogger::addLog(
-                        'Pricee sync: failed to sync product ID '.$product->id.': '.$e->getMessage(),
-                        3
-                    );
-                }
+            try {
+                $this->apiService->createOrUpdateProduct($bearer, $websiteId, $this->productUrl($product, $idLang, $idShop), (string) $product->id);
+                ++$synced;
+            } catch (\Exception $e) {
+                // log the error and go to the next product
+                ++$failed;
+                \PrestaShopLogger::addLog('Pricee sync: failed to sync product ID '.$product->id.': '.$e->getMessage(), 3);
             }
-        );
 
-        return $syncedCount;
+            unset($product);
+        }
+
+        $lastId = (int) end($productIds);
+
+        return [
+            'synced' => $synced,
+            'failed' => $failed,
+            'lastId' => $lastId,
+            'done' => [] === $this->nextProductIds($categories, $idShop, $lastId, 1),
+            'total' => $total,
+        ];
     }
 
     /**
@@ -166,6 +144,27 @@ class SyncService
     }
 
     /**
+     * Front-office URL of a product page, as Pricee reads it.
+     */
+    private function productUrl(\Product $product, int $idLang, int $idShop): string
+    {
+        $forceRoutes = (bool) \Configuration::get('PS_REWRITING_SETTINGS', null, null, $idShop);
+
+        $productUrl = \Context::getContext()->link->getProductLink($product, null, null, null, $idLang, $idShop, null, $forceRoutes);
+
+        // In back-office requests the dispatcher can fall back to the
+        // legacy "product_rule" URL, which is not a valid front-office
+        // route: rewrite it to the standard product URL
+        $normalizedUrl = preg_replace(
+            '#^(.*index\.php)\?controller=product_rule&id=(\d+).*$#',
+            '$1?controller=product&id_product=$2',
+            $productUrl
+        );
+
+        return is_string($normalizedUrl) ? $normalizedUrl : $productUrl;
+    }
+
+    /**
      * Front URL of a shop (its own domain and base URI), in https when SSL is
      * enabled whatever the protocol of the back-office request.
      */
@@ -181,47 +180,47 @@ class SyncService
         return strtolower((string) preg_replace('#^https?://#i', '', rtrim($url, '/')));
     }
 
-    private function iterateProducts(
-        array $idCategories,
-        int $idShop,
-        int $idLang,
-        int $limit,
-        callable $callback,
-        int $batchSize = 100
-    ): void {
-        if ([] === $idCategories || $limit <= 0) {
-            return;
+    /**
+     * Number of products a sync of these categories takes in the shop.
+     *
+     * @param array<int> $idCategories
+     */
+    private function countProducts(array $idCategories, int $idShop): int
+    {
+        if ([] === $idCategories) {
+            return 0;
         }
 
-        $idCategories = array_map('intval', $idCategories);
-        $offset = 0;
-        $count = 0;
+        return (int) \Db::getInstance()->getValue(
+            'SELECT COUNT(DISTINCT cp.id_product)
+            FROM '.self::shopProductsSql($idShop).'
+            AND cp.id_category IN ('.implode(',', $idCategories).')'
+        );
+    }
 
-        do {
-            $sql = '
-                SELECT DISTINCT cp.id_product
-                FROM '.self::shopProductsSql($idShop).'
-                AND cp.id_category IN ('.implode(',', $idCategories).')
-                ORDER BY cp.id_product
-                LIMIT '.(int) $batchSize.' OFFSET '.(int) $offset;
+    /**
+     * IDs of the next products to sync after $afterId, in ID order: a cursor
+     * stays correct even if products are added or removed between batches.
+     *
+     * @param array<int> $idCategories
+     *
+     * @return array<int>
+     */
+    private function nextProductIds(array $idCategories, int $idShop, int $afterId, int $limit): array
+    {
+        if ([] === $idCategories || $limit <= 0) {
+            return [];
+        }
 
-            $rows = \Db::getInstance()->executeS($sql);
+        $rows = \Db::getInstance()->executeS(
+            'SELECT DISTINCT cp.id_product
+            FROM '.self::shopProductsSql($idShop).'
+            AND cp.id_category IN ('.implode(',', $idCategories).')
+            AND cp.id_product > '.$afterId.'
+            ORDER BY cp.id_product
+            LIMIT '.$limit
+        );
 
-            foreach ($rows as $row) {
-                if ($count >= $limit) {
-                    return;
-                }
-
-                $product = new \Product((int) $row['id_product'], false, $idLang, $idShop);
-
-                $callback($product);
-                ++$count;
-
-                // free memory explicitly
-                unset($product);
-            }
-
-            $offset += $batchSize;
-        } while (!empty($rows));
+        return array_map('intval', array_column($rows ?: [], 'id_product'));
     }
 }

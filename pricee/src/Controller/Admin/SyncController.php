@@ -32,8 +32,8 @@ class SyncController extends FrameworkBundleAdminController
 
         $idShop = (int) $request->request->get('id_shop');
         $categories = array_map('intval', (array) ($request->request->all()['categories'] ?? []));
-        $syncedCount = 0;
-        $success = false;
+        // Batch cursor: the sync goes on after the last product of the previous batch
+        $afterId = max(0, (int) $request->request->get('after_id'));
 
         // Only a shop of the current back-office context can be synced
         $contextShopIds = array_map('intval', \Shop::getContextListShopID());
@@ -55,25 +55,34 @@ class SyncController extends FrameworkBundleAdminController
             ], 400);
         }
 
-        if (!empty($categories)) {
-            try {
-                $syncedCount = $this->syncService->sync(
-                    $idShop,
-                    $categories
-                );
-                $success = true;
-            } catch (\Throwable $e) {
-                return new JsonResponse([
-                    'success' => false,
-                    'synced' => 0,
-                    'error' => $e->getMessage(),
-                ], 500);
-            }
+        if ([] === $categories) {
+            return new JsonResponse([
+                'success' => false,
+                'synced' => 0,
+                'error' => 'No category selected',
+            ], 400);
+        }
+
+        // One batch per request, so a large selection never hits a timeout
+        @set_time_limit(120);
+
+        try {
+            $result = $this->syncService->sync($idShop, $categories, $afterId);
+        } catch (\Throwable $e) {
+            return new JsonResponse([
+                'success' => false,
+                'synced' => 0,
+                'error' => $e->getMessage(),
+            ], 500);
         }
 
         return new JsonResponse([
-            'success' => $success,
-            'synced' => $syncedCount,
+            'success' => true,
+            'synced' => $result['synced'],
+            'failed' => $result['failed'],
+            'last_id' => $result['lastId'],
+            'done' => $result['done'],
+            'total' => $result['total'],
         ]);
     }
 }

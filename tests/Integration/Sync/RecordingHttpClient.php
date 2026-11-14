@@ -28,6 +28,9 @@ class RecordingHttpClient
      */
     public array $products = [];
 
+    /** extId whose creation is refused, like when the Pricee product limit is reached */
+    public ?string $failProductCreationFor = null;
+
     private int $nextId = 1;
 
     public function client(): MockHttpClient
@@ -104,6 +107,10 @@ class RecordingHttpClient
         }
 
         if ('POST' === $method && 'website_products' === $path) {
+            if (null !== $this->failProductCreationFor && ($json['extId'] ?? null) === $this->failProductCreationFor) {
+                return $this->json(['detail' => 'Products limit exceeded'], 403);
+            }
+
             $id = $this->addProduct((string) $json['url'], $json['extId'] ?? null);
 
             return $this->json(['id' => $id], 201);
