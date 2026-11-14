@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep receiving webhook price updates while the shop is in maintenance mode
 - Skip webhook updates for unknown products instead of guessing them from their URL
 - Fix products enabled in a shop but disabled in the default shop being left out of the sync
+- Support PrestaShop 9.2.1
 
 ## [1.3.5] - 2026-11-04
 

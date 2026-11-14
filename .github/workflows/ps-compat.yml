@@ -22,7 +22,7 @@ jobs:
           - ps: '8.2.1'
             db: 'mariadb:10.11'
           # Latest supported version (ps_versions_compliancy max)
-          - ps: '9.2.0-apache'
+          - ps: '9.2.1-apache'
             db: 'mariadb:11.4'
 
     steps:
