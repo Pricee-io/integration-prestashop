@@ -6,6 +6,13 @@
     "friendsofphp/php-cs-fixer": "^3.92",
     "phpstan/phpstan": "^2.1",
     "rector/rector": "^2.3",
-    "prestashop/php-dev-tools": "^5.0"
+    "prestashop/php-dev-tools": "^5.0",
+    "phpunit/phpunit": "^12"
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PriceeIO\\": "pricee/src/",
+      "PriceeIO\\Tests\\": "tests/"
+    }
   }
 }

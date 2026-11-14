@@ -4,6 +4,7 @@ includes:
 parameters:
   paths:
     - ./pricee
+    - ./tests
   excludePaths:
     - ./pricee/vendor (?)
 

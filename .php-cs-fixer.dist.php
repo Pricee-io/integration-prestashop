@@ -13,6 +13,6 @@ return (new Config())
     ])
     ->setFinder(
         (new Finder())
-            ->in(__DIR__ . '/pricee')
+            ->in([__DIR__ . '/pricee', __DIR__ . '/tests'])
     )
 ;

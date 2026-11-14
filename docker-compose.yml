@@ -49,6 +49,9 @@ services:
     volumes:
       - prestashop_data:/var/www/html
       - ./pricee:/var/www/html/modules/pricee
+      # Repository (tests and dev dependencies) for `make test`, which runs
+      # PHPUnit against this PrestaShop install
+      - ./:/app:ro
 
 volumes:
   mysql_data:
