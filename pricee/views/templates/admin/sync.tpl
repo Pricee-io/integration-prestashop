@@ -72,16 +72,20 @@
 </div>
 
 <script>
-// Only the categories of the selected shop are shown and submitted
+// Only the categories of the selected shop are shown and submitted. The
+// select is read on load too: browsers can restore its previous value on
+// reload, which would otherwise show another shop's categories.
 var priceeShopSelect = document.getElementById('pricee-sync-shop');
 if (priceeShopSelect) {
-    priceeShopSelect.addEventListener('change', function(e) {
+    var priceeShowShopCategories = function() {
         document.querySelectorAll('.pricee-sync-categories').forEach(function(fieldset) {
-            var selected = fieldset.dataset.shop === e.target.value;
+            var selected = fieldset.dataset.shop === priceeShopSelect.value;
             fieldset.classList.toggle('d-none', !selected);
             fieldset.disabled = !selected;
         });
-    });
+    };
+    priceeShopSelect.addEventListener('change', priceeShowShopCategories);
+    priceeShowShopCategories();
 }
 
 document.getElementById('pricee-sync-form').addEventListener('submit', function(e) {

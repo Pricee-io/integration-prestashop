@@ -394,14 +394,17 @@ class Pricee extends Module
     {
         $idShop = (int) $shop->id;
 
+        $idCategories = SyncService::shopCategoryIds($idShop);
+        if ([] === $idCategories) {
+            return [];
+        }
+
         $rows = Db::getInstance()->executeS(
             'SELECT c.id_category, cl.name, c.active
             FROM '._DB_PREFIX_.'category c
-            INNER JOIN '._DB_PREFIX_.'category_shop cs ON cs.id_category = c.id_category AND cs.id_shop = '.$idShop.'
             INNER JOIN '._DB_PREFIX_.'category_lang cl ON cl.id_category = c.id_category
                 AND cl.id_lang = '.$idLang.' AND cl.id_shop = '.$idShop.'
-            WHERE c.id_category > 1
-            AND c.id_category != '.(int) $shop->id_category.'
+            WHERE c.id_category IN ('.implode(',', $idCategories).')
             ORDER BY c.nleft'
         );
 
@@ -415,8 +418,6 @@ class Pricee extends Module
             $counts[(int) $countRow['id_category']] = (int) $countRow['product_count'];
         }
 
-        // The global root (id 1) and the shop home category are not offered:
-        // every product belongs to its home category, so it would sync the whole catalog
         $categories = [];
         foreach ($rows ?: [] as $row) {
             $idCategory = (int) $row['id_category'];

@@ -32,7 +32,7 @@ class SyncController extends FrameworkBundleAdminController
 
         $idShop = (int) $request->request->get('id_shop');
         $idLang = $request->request->get('id_lang');
-        $categories = $request->request->all()['categories'] ?? [];
+        $categories = array_map('intval', (array) ($request->request->all()['categories'] ?? []));
         $syncedCount = 0;
         $success = false;
 
@@ -43,6 +43,16 @@ class SyncController extends FrameworkBundleAdminController
                 'success' => false,
                 'synced' => 0,
                 'error' => 'Invalid shop',
+            ], 400);
+        }
+
+        // Only categories offered for this shop can be synced, so a category
+        // of another shop's tree never selects products of the wrong scope
+        if ([] !== array_diff($categories, SyncService::shopCategoryIds($idShop))) {
+            return new JsonResponse([
+                'success' => false,
+                'synced' => 0,
+                'error' => 'Invalid categories',
             ], 400);
         }
 

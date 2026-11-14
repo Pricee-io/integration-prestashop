@@ -125,6 +125,30 @@ class SyncService
     }
 
     /**
+     * IDs of the categories a shop can sync, in tree order: the categories
+     * associated with the shop that sit under its own home category. The
+     * global root and the home category itself are left out, as every
+     * product belongs to its home category, and so are categories of
+     * another shop's tree that happen to be associated with this shop.
+     *
+     * @return array<int>
+     */
+    public static function shopCategoryIds(int $idShop): array
+    {
+        $rows = \Db::getInstance()->executeS(
+            'SELECT c.id_category
+            FROM '._DB_PREFIX_.'category c
+            INNER JOIN '._DB_PREFIX_.'category_shop cs ON cs.id_category = c.id_category AND cs.id_shop = '.(int) $idShop.'
+            INNER JOIN '._DB_PREFIX_.'shop s ON s.id_shop = '.(int) $idShop.'
+            INNER JOIN '._DB_PREFIX_.'category home ON home.id_category = s.id_category
+            WHERE c.nleft > home.nleft AND c.nright < home.nright
+            ORDER BY c.nleft'
+        );
+
+        return array_map('intval', array_column($rows ?: [], 'id_category'));
+    }
+
+    /**
      * FROM/WHERE clause of the products a shop sells, joined to their
      * categories: category_product is not shop-specific, and product_shop
      * holds the shop's own active flag (product.active is the default
