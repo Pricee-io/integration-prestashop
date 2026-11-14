@@ -25,11 +25,13 @@ lint:
 lint_ci:
 	docker compose run --rm --user $$(id -u):$$(id -g) dev php vendor/bin/php-cs-fixer fix --dry-run --diff
 
+# PHPStan boots PrestaShop, which creates its cache folders in the shop
+# volume: run as its owner (www-data), like the web server and `make test`
 analyze:
-	docker compose run --rm --user $$(id -u):$$(id -g) -e _PS_ROOT_DIR_=/var/www/html dev php vendor/bin/phpstan analyse --memory-limit=1G
+	docker compose run --rm --user www-data -e _PS_ROOT_DIR_=/var/www/html dev php vendor/bin/phpstan analyse --memory-limit=1G
 
 analyze_ci:
-	docker compose run --rm --user $$(id -u):$$(id -g) -e _PS_ROOT_DIR_=/var/www/html dev php vendor/bin/phpstan analyse --error-format github --memory-limit=1G
+	docker compose run --rm --user www-data -e _PS_ROOT_DIR_=/var/www/html dev php vendor/bin/phpstan analyse --error-format github --memory-limit=1G
 
 # Integration tests, run inside the PrestaShop container against its install.
 # They use PrestaShop's test mode, i.e. the `test_prestashop` database, rebuilt
