@@ -19,10 +19,24 @@ class SyncController extends FrameworkBundleAdminController
         $this->syncService = $syncService;
     }
 
+    /**
+     * CSRF token of the sync form, for an employee. The admin token cannot be
+     * used: since PrestaShop 9 it is a Symfony CSRF token whose value changes
+     * at each call, so the page's and this controller's never match. This one
+     * is the same on every version, and cannot be computed without the
+     * shop's secret key.
+     */
+    public static function token(int $idEmployee): string
+    {
+        return hash_hmac('sha256', 'pricee-sync|'.$idEmployee, _COOKIE_KEY_);
+    }
+
     public function syncAction(Request $request): JsonResponse
     {
         $token = (string) $request->request->get('sync_token');
-        if ('' === $token || !hash_equals(\Tools::getAdminTokenLite('AdminModules'), $token)) {
+        $employee = \Context::getContext()->employee;
+        $idEmployee = $employee instanceof \Employee ? (int) $employee->id : 0;
+        if ('' === $token || $idEmployee <= 0 || !hash_equals(self::token($idEmployee), $token)) {
             return new JsonResponse([
                 'success' => false,
                 'synced' => 0,

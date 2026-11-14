@@ -1,12 +1,23 @@
+# Written for every supported version, down to PrestaShop 1.7.8 (Symfony
+# 3.4), whose back-office container breaks every page on any error here:
+# - each service names its class: the ID is not used as the class there;
+# - the module creates its own HTTP client: there is no http_client service
+#   to autowire there.
 services:
-  PriceeIO\Controller\Admin\SyncController:
+  pricee.http_client:
+    class: Symfony\Contracts\HttpClient\HttpClientInterface
+    factory: ['Symfony\Component\HttpClient\HttpClient', 'create']
+
+  PriceeIO\Service\ApiService:
+    class: PriceeIO\Service\ApiService
+    arguments: ['@pricee.http_client']
+
+  PriceeIO\Service\SyncService:
+    class: PriceeIO\Service\SyncService
     autowire: true
     autoconfigure: true
 
-  PriceeIO\Service\SyncService:
-      autowire: true
-      autoconfigure: true
-
-  PriceeIO\Service\ApiService:
-      autowire: true
-      autoconfigure: true
+  PriceeIO\Controller\Admin\SyncController:
+    class: PriceeIO\Controller\Admin\SyncController
+    autowire: true
+    autoconfigure: true

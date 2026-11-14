@@ -24,6 +24,7 @@
  *  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
  *  International Registered Trademark & Property of PrestaShop SA
  */
+use PriceeIO\Controller\Admin\SyncController;
 use PriceeIO\Service\SyncService;
 use PriceeIO\Settings\SettingsService;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -109,7 +110,7 @@ class Pricee extends Module
             'shops' => $this->getShops(),
             'current_shop_id' => $this->getCurrentShopId(),
             'ajax_sync_link' => $ajaxSyncLink,
-            'sync_token' => Tools::getAdminTokenLite('AdminModules'),
+            'sync_token' => SyncController::token((int) $this->context->employee->id),
         ]);
 
         $output = $notice.$this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');

@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multistore: a shop switching to its own credentials must enter its own API key instead of silently keeping the shared one
 - Show a confirmation when the settings are saved
 - Only employees allowed to configure the module can run a sync
+- Fix the sync always failing with "Invalid token" on PrestaShop 9
+- Fix the back office of PrestaShop 1.7.8 shops failing to load once the module is installed
 - During sync, a product whose URL is already tracked for another product is reported in error instead of taking over its tracking
 - Keep the price per unit (e.g. per kg) consistent when the webhook changes a product's price
 - Skip webhook price updates when visitors see no prices (catalog mode, or prices hidden for the visitor group)
