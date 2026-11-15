@@ -106,6 +106,8 @@ class SettingsService
             return;
         }
 
+        // The credentials each shop uses now, read before anything changes
+        $copies = [];
         foreach (\Shop::getShops(false, null, true) as $idShop) {
             $idShop = (int) $idShop;
             $idShopGroup = (int) \Shop::getGroupFromShop($idShop);
@@ -116,9 +118,24 @@ class SettingsService
 
                 $value = \Configuration::get($key, null, $idShopGroup, $idShop);
                 if (false !== $value && '' !== $value) {
-                    \Configuration::updateValue($key, (string) $value, false, $idShopGroup, $idShop);
+                    $copies[] = ['id_shop_group' => $idShopGroup, 'id_shop' => $idShop, 'name' => $key, 'value' => (string) $value];
                 }
             }
+        }
+
+        // Written directly: before PrestaShop 8, Configuration::updateValue()
+        // skips a value equal to the one the shop inherits, so it would never
+        // be stored for the shop, and would be lost with the shared value
+        $now = date('Y-m-d H:i:s');
+        foreach ($copies as $copy) {
+            \Db::getInstance()->insert('configuration', [
+                'id_shop_group' => $copy['id_shop_group'],
+                'id_shop' => $copy['id_shop'],
+                'name' => pSQL($copy['name']),
+                'value' => pSQL($copy['value']),
+                'date_add' => $now,
+                'date_upd' => $now,
+            ]);
         }
 
         \Db::getInstance()->delete('configuration', 'name IN ('.$this->keysSql(self::CREDENTIAL_KEYS).') AND id_shop IS NULL');
