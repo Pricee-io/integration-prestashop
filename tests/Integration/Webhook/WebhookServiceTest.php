@@ -687,7 +687,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $entry = $this->entry(['extId' => (string) $product->id]);
         unset($entry['currentPriceAmount']);
 
-        $this->assertSame([WebhookService::SKIPPED_PRICE_CHANGED_IN_SHOP], $this->send([$entry]));
+        $this->assertSame([WebhookService::SKIPPED_NO_READ_PRICE], $this->send([$entry]));
         $this->assertProductPrice($product, 10.0);
     }
 

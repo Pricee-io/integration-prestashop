@@ -56,5 +56,8 @@ rector:
 
 package:
 	docker compose run --rm --user $$(id -u):$$(id -g) dev bash -c "cd /app/pricee && composer dump-autoload"
+	# Composer creates vendor/ without the index.php every module folder carries
+	cp pricee/index.php pricee/vendor/index.php
+	cp pricee/index.php pricee/vendor/composer/index.php
 	rm -f pricee.zip
 	zip -r pricee.zip pricee

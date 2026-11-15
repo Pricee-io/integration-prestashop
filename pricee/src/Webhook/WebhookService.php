@@ -40,6 +40,7 @@ class WebhookService
     public const SKIPPED_PROMOTION = 'skipped_promotion';
     public const SKIPPED_ECOTAX = 'skipped_ecotax';
     public const SKIPPED_GROUP_DISCOUNT = 'skipped_group_discount';
+    public const SKIPPED_NO_READ_PRICE = 'skipped_no_read_price';
     public const SKIPPED_PRICE_CHANGED_IN_SHOP = 'skipped_price_changed_in_shop';
     public const SKIPPED_BELOW_COST = 'skipped_below_cost';
     public const SKIPPED_UNIT_PRICE = 'skipped_unit_price';
@@ -182,7 +183,7 @@ class WebhookService
         $displayedPrice = round($currentPrice * $displayFactor, $precision);
         $readPrice = $productData['currentPriceAmount'] ?? null;
         if (!is_numeric($readPrice)) {
-            return $this->skip(self::SKIPPED_PRICE_CHANGED_IN_SHOP, 'no current price sent to compare with the shop price', $product);
+            return $this->skip(self::SKIPPED_NO_READ_PRICE, 'no current price sent to compare with the shop price', $product);
         }
         if (abs($displayedPrice - round((float) $readPrice, $precision)) >= 0.000001) {
             return $this->skip(self::SKIPPED_PRICE_CHANGED_IN_SHOP, 'the shop price '.$displayedPrice.' is no longer the one Pricee read ('.$readPrice.')', $product);
