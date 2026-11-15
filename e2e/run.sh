@@ -76,7 +76,7 @@ for i in $(seq 1 60); do
     sleep 2
 done
 
-docker run -d --name "$SHOP" --network "$NAME" -p "${PORT}:80" \
+docker run -d --name "$SHOP" --network "$NAME" -p "127.0.0.1:${PORT}:80" \
     -e PS_INSTALL_AUTO=1 -e PS_DOMAIN="localhost:${PORT}" -e PS_LANGUAGE=en -e PS_COUNTRY=FR \
     -e PS_FOLDER_ADMIN="$ADMIN_DIR" -e ADMIN_MAIL="$ADMIN_EMAIL" -e ADMIN_PASSWD="$ADMIN_PASSWD" \
     -e DB_SERVER="$DB" -e DB_NAME=prestashop -e DB_USER=prestashop -e DB_PASSWD=prestashop -e DB_PREFIX=ps_ \
