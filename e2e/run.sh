@@ -2,7 +2,7 @@
 # End-to-end tests of the module in a real, throwaway PrestaShop: starts its
 # own database and shop containers (never the dev ones), then
 #
-#   1. installs the last release (E2E_FROM_REF, 1.5.0 by default) and
+#   1. installs the last release (E2E_FROM_REF, 1.5.1 by default) and
 #      configures it like a merchant, then upgrades to the current code and
 #      checks the module is still active with its settings kept;
 #   2. sends real signed HTTP calls to the webhook and checks the prices;
@@ -18,7 +18,7 @@ set -euo pipefail
 PS_TAG="${1:-9.2.1-apache}"
 DB_IMAGE="${2:-mariadb:11.4}"
 PORT="${E2E_PORT:-8082}"
-FROM_REF="${E2E_FROM_REF:-907b471}" # Bump version to 1.5.0
+FROM_REF="${E2E_FROM_REF:-2f3a830}" # Bump version to 1.5.1
 DEV_IMAGE="${E2E_DEV_IMAGE:-integration-prestashop-dev}"
 # Same version as the playwright package in e2e/package.json
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.49.1-noble"
