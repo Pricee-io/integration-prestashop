@@ -96,7 +96,7 @@ When every check passes, the **base price** of the product is replaced:
 - The price per unit (e.g. per kg), when set, changes in the same proportion, so it stays consistent with the new price.
 - Nothing else changes: no promotion, no other shop's price (in multistore, the price is written for the receiving shop only).
 
-There is no limit on the size of a change on the plugin side: Pricee never sends a price below the product's floor, its minimum price or its reference price lowered by the largest decrease set for the website or the product.
+There is no limit on the size of a change on the plugin side: Pricee never sends a price below the product's floor (its minimum price, or its reference price lowered by the largest decrease set for the website or the product, whichever is higher), and never raises a price above its reference price.
 
 The call answers 200 "Webhook received and validated" even when some entries were skipped.
 
