@@ -34,8 +34,9 @@ class SyncController extends FrameworkBundleAdminController
     public function syncAction(Request $request): JsonResponse
     {
         $token = (string) $request->request->get('sync_token');
+        // Back-office request: the employee is always set, with no ID if not logged in
         $employee = \Context::getContext()->employee;
-        $idEmployee = $employee instanceof \Employee ? (int) $employee->id : 0;
+        $idEmployee = (int) $employee->id;
         if ('' === $token || $idEmployee <= 0 || !hash_equals(self::token($idEmployee), $token)) {
             return new JsonResponse([
                 'success' => false,
@@ -45,9 +46,8 @@ class SyncController extends FrameworkBundleAdminController
         }
 
         // Same right as the module page the sync is started from
-        $employee = \Context::getContext()->employee;
         $idModule = (int) \Module::getModuleIdByName('pricee');
-        if (!$employee instanceof \Employee || !\Module::getPermissionStatic($idModule, 'configure', $employee)) {
+        if (!\Module::getPermissionStatic($idModule, 'configure', $employee)) {
             return new JsonResponse([
                 'success' => false,
                 'synced' => 0,
