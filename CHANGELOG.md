@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+- Report to Pricee the outcome of each price update, so you can see in Pricee which prices were applied or skipped and why
+
 ## [1.4.1] - 2026-11-15
 
 - Follow the updated format of Pricee's webhook calls, required for automatic price updates

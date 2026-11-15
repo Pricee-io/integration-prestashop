@@ -220,6 +220,7 @@ function webhook(): void
     [$status, $response, $body] = sendWebhook([entry($simple, 8.0), entry($promoted, 7.0)]);
     assertSame(200, $status, 'signed call accepted ('.$response.')');
     assertSame(['updated_price' => 1, 'skipped_promotion' => 1], json_decode($response, true)['outcomes'] ?? null, 'answer counts each outcome');
+    assertSame(['updated_price', 'skipped_promotion'], json_decode($response, true)['results'] ?? null, 'answer gives each entry its outcome, in order');
     assertSame(8.0, storedPrice($simple), 'simple product price written');
     assertSame(10.0, storedPrice($promoted), 'product with a promotion left untouched');
 

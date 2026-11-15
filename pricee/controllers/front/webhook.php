@@ -33,6 +33,8 @@ class PriceeWebhookModuleFrontController extends ModuleFrontController
                 'message' => 'Webhook received and validated',
                 // How many entries were updated, unchanged or skipped, and why
                 'outcomes' => array_count_values($outcomes),
+                // The outcome of each entry, in payload order
+                'results' => $outcomes,
             ]);
         } catch (WebhookRejectedException $e) {
             $this->sendResponse($e->getCode(), ['success' => false, 'message' => $e->getMessage()]);
