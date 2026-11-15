@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-11-15
+
+- Products are synced to the Pricee website your API key belongs to: create the API key from the Integrations page of your shop's website on Pricee
+- The sync stops with a clear message when the API key belongs to another website, or is not tied to a website
+- The module no longer creates websites on Pricee
+- Multistore: Pricee credentials are now set shop by shop, as each shop has its own website on Pricee. Credentials set for all shops or a group are copied to each shop when upgrading
+
 ## [1.5.1] - 2026-11-15
 
 - Report to Pricee the outcome of each price update, so you can see in Pricee which prices were applied or skipped and why
