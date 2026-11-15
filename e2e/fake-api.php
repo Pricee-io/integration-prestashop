@@ -15,6 +15,8 @@ const CLIENT_ID = 'e2e-client';
 const API_KEY = 'e2e-key';
 const TOKEN = 'e2e-token';
 const PAGE_SIZE = 30;
+// The website the API key is scoped to, returned at login
+const WEBSITE_IRI = '/api/v1/websites/11111111-0000-4000-8000-000000000001';
 
 function loadState(): array
 {
@@ -60,7 +62,7 @@ $state['requests'][] = ['method' => $method, 'route' => $route];
 if ('POST' === $method && 'login' === $route) {
     $valid = CLIENT_ID === ($headers['x-client-id'] ?? '') && API_KEY === ($headers['x-api-key'] ?? '');
     saveState($state);
-    $valid ? respond(200, ['token' => TOKEN]) : respond(401, ['detail' => 'Invalid credentials']);
+    $valid ? respond(200, ['token' => TOKEN, 'website' => WEBSITE_IRI]) : respond(401, ['detail' => 'Invalid credentials']);
 
     return;
 }
@@ -81,11 +83,9 @@ if ('GET' === $method && 'websites' === $route) {
 }
 
 if ('POST' === $method && 'websites' === $route) {
-    $id = uuid('11111111', count($state['websites']) + 1);
-    $website = ['@id' => '/api/v1/websites/'.$id, 'id' => $id, 'url' => (string) ($body['url'] ?? '')];
-    $state['websites'][] = $website;
+    // API keys are scoped to a website: they cannot create websites
     saveState($state);
-    respond(201, $website);
+    respond(403, ['detail' => 'This API key is scoped to a website and cannot create websites.']);
 
     return;
 }

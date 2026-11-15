@@ -171,30 +171,54 @@ class SyncServiceTest extends IntegrationTestCase
     // Website
     // ---------------------------------------------------------------
 
-    public function testCreatesTheShopWebsiteWhenMissing(): void
+    public function testSyncsToTheWebsiteOfTheApiKey(): void
     {
         $category = $this->createCategory('Pricee category');
         $this->createProduct('Pricee product', 10, [(int) $category->id]);
+        // Registered on Pricee with www., which Pricee ignores when matching products
+        $url = rtrim($this->shopFrontUrl(), '/');
+        $this->api->addWebsite((string) preg_replace('#^(https?://)#', '$1www.', $url));
 
-        $this->service->sync($this->shopId(), [(int) $category->id]);
+        $result = $this->service->sync($this->shopId(), [(int) $category->id]);
 
-        $created = $this->api->requestsTo('POST', 'websites');
+        $this->assertSame(1, $result['synced']);
+        $this->assertSame([], $this->api->requestsTo('POST', 'websites'));
+        $created = $this->api->requestsTo('POST', 'website_products');
         $this->assertCount(1, $created);
-        $this->assertSame(rtrim($this->shopFrontUrl(), '/'), $created[0]['json']['url']);
+        $this->assertSame($this->api->scopedWebsite, $created[0]['json']['website']);
     }
 
-    public function testReusesTheShopWebsiteWhateverItsScheme(): void
+    public function testApiKeyOfAnotherWebsiteStopsTheSync(): void
     {
         $category = $this->createCategory('Pricee category');
         $this->createProduct('Pricee product', 10, [(int) $category->id]);
-        $url = rtrim($this->shopFrontUrl(), '/');
-        $otherScheme = 0 === strpos($url, 'https://') ? 'http://'.substr($url, 8) : 'https://'.substr($url, 7);
-        $this->api->addWebsite($otherScheme.'/');
+        $this->api->addWebsite('https://another-shop.example');
 
-        $this->service->sync($this->shopId(), [(int) $category->id]);
+        try {
+            $this->service->sync($this->shopId(), [(int) $category->id]);
+            $this->fail('The sync must stop when the API key belongs to another website');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('https://another-shop.example', $e->getMessage());
+        }
 
         $this->assertSame([], $this->api->requestsTo('POST', 'websites'));
-        $this->assertCount(1, $this->api->requestsTo('POST', 'website_products'));
+        $this->assertSame([], $this->api->requestsTo('POST', 'website_products'));
+    }
+
+    public function testApiKeyWithoutWebsiteStopsTheSync(): void
+    {
+        $category = $this->createCategory('Pricee category');
+        $this->createProduct('Pricee product', 10, [(int) $category->id]);
+        $this->api->scopedWebsite = null;
+
+        try {
+            $this->service->sync($this->shopId(), [(int) $category->id]);
+            $this->fail('The sync must stop when the API key is not tied to a website');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('not tied to a website', $e->getMessage());
+        }
+
+        $this->assertSame([], $this->api->requestsTo('POST', 'website_products'));
     }
 
     public function testLogsInOncePerBatch(): void

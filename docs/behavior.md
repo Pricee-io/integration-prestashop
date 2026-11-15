@@ -15,7 +15,7 @@ One page in the back office (Modules → Pricee.io → Configure), in French, wi
 
 | Field | Behavior |
 |---|---|
-| ID Client | Pricee API client ID. |
+| ID Client | Pricee API client ID, of an API key created from the Intégrations page of the shop's website on Pricee (each API key is tied to one website). |
 | Clé API | Pricee API key. Masked; leaving it empty on save keeps the stored key. |
 | Activer la synchronisation webhook | Yes/No. When No, the webhook refuses every call. |
 | URL du Webhook | Read-only, the shop's webhook URL to copy into Pricee. |
@@ -23,12 +23,9 @@ One page in the back office (Modules → Pricee.io → Configure), in French, wi
 
 Without multistore, all settings are saved for the shop, as usual.
 
-With multistore, the form title shows the level being edited ("Configuration — Toutes les boutiques", "— Groupe : X" or "— Boutique : X", from the shop selector at the top of the back office), and the settings are saved at that level:
+With multistore, the form title shows the level being edited ("Configuration — Toutes les boutiques", "— Groupe : X" or "— Boutique : X", from the shop selector at the top of the back office). All settings (Pricee credentials and webhook) are per shop only, because each shop is its own website on Pricee, with its own API key and its own webhook. For all shops or a group, the fields are replaced by a note asking to select a shop, and there is nothing to save.
 
-- **Pricee credentials** (ID Client, Clé API): shared by default.
-  - For all shops or a group: the credentials apply to every shop (of the group), and the help text lists the shops and groups that use their own credentials instead.
-  - For one shop: a switch "Utiliser les identifiants communs". Yes (default): the shop uses the shared credentials, its credential fields are disabled, and saving removes any credentials of its own. No: the shop uses the credentials entered below; when the shop has no API key of its own yet, the Clé API must be filled in, otherwise nothing is saved and an error asks for it.
-- **Webhook settings** (activation, URL, secret key): per shop only, because each shop is its own website with its own webhook on Pricee. For all shops or a group, they are replaced by a note asking to select a shop.
+Upgrading to 2.0.0 copies the credentials that were set for all shops or a group to every shop without credentials of its own, then removes them: each shop keeps the credentials it used. A shop whose domain is not the website of that API key then gets an error on sync, until it is given an API key of its own website.
 
 ### Sync block
 
@@ -42,7 +39,7 @@ With multistore, the form title shows the level being edited ("Configuration —
 When the button is clicked, for the selected shop:
 
 1. Log in to Pricee with the ID Client / Clé API **of that shop**.
-2. Find the Pricee website matching the shop's front URL (its own domain in multistore). The match ignores `http`/`https` and a trailing `/`. If none exists, it is created.
+2. Sync to the Pricee website the API key is tied to: each API key is created from a website's Intégrations page on Pricee. If that website's domain is not the shop's front domain (its own domain in multistore; `http`/`https` and `www.` ignored), the sync stops with an error and nothing is sent: in multistore, each shop with its own domain needs an API key of its own website. The module never creates a website on Pricee.
 3. Take the products that are **in the checked categories, associated with the shop and active in that shop**. Each product is sent once, even if it is in several checked categories. There is no limit on the number of products: they are sent in batches of 50, one request each, so a large catalog never hits a timeout. Steps 1 and 2 are repeated for each batch.
 4. For each product, send to Pricee:
    - `url`: the product page URL on the shop, in the shop's default language.

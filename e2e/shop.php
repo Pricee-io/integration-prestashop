@@ -280,8 +280,8 @@ function checkSync(): void
         fail('missing fixtures or fake API state');
     }
 
-    $baseUrl = rtrim(Context::getContext()->link->getBaseLink(idShop()), '/');
-    assertSame([$baseUrl], array_column($state['websites'], 'url'), 'one website registered, with the shop front URL');
+    assertSame([], $state['websites'], 'no website created on Pricee');
+    assertSame(['/api/v1/websites/11111111-0000-4000-8000-000000000001'], array_values(array_unique(array_column($state['products'], 'website'))), 'products sent to the website of the API key');
 
     $extIds = array_map('intval', array_column($state['products'], 'extId'));
     sort($extIds);

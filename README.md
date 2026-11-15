@@ -4,7 +4,7 @@
 
 ## Features
 
-- Authenticate with Pricee.io using Client ID & Secret Key (API Key)
+- Authenticate with Pricee.io using Client ID & Secret Key (API Key), created from the Integrations page of your website on Pricee.io (each key is tied to one website)
 - Sync selected product categories from PrestaShop to Pricee.io
 
 ## Prerequisites

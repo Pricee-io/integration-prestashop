@@ -48,7 +48,8 @@ class SyncService
         $apiKey = (string) \Configuration::get('PRICEE_API_KEY', null, null, $idShop);
 
         try {
-            $bearer = $this->apiService->getBearer($clientId, $apiKey);
+            $login = $this->apiService->login($clientId, $apiKey);
+            $bearer = $login['token'];
             $websites = $this->apiService->getWebsites($bearer);
         } catch (\Throwable $e) {
             \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
@@ -60,22 +61,27 @@ class SyncService
         // registered on Pricee must be the shop front URL, not the host of
         // the back-office request
         $normalizedWebsiteUrl = rtrim($this->getShopWebsiteUrl($idShop), '/');
-        $websiteId = null;
 
-        // Look for existing website, whatever the scheme it was registered with
-        $websiteKey = $this->websiteKey($normalizedWebsiteUrl);
-        foreach ($websites as $w) {
-            if ($this->websiteKey((string) $w['url']) === $websiteKey) {
-                $websiteId = $w['@id'];
+        // Each API key is scoped to a website: sync to it, never to another one
+        $websiteId = $login['website'];
+        if (null === $websiteId) {
+            $message = 'This API key is not tied to a website. Create an API key from the Integrations page of this shop\'s website on Pricee.';
+            \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$message, 3);
 
-                break;
-            }
+            throw new \RuntimeException($message);
         }
 
-        // If not found, create it
-        if (!$websiteId) {
-            $website = $this->apiService->createWebsite($bearer, $normalizedWebsiteUrl);
-            $websiteId = $website['@id'];
+        foreach ($websites as $w) {
+            if ($w['@id'] === $websiteId && $this->websiteHost((string) $w['url']) !== $this->websiteHost($normalizedWebsiteUrl)) {
+                $message = sprintf(
+                    'This API key belongs to the Pricee website %s, not to this shop (%s). Use an API key created from the Integrations page of this shop\'s website on Pricee.',
+                    $w['url'],
+                    $normalizedWebsiteUrl
+                );
+                \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$message, 3);
+
+                throw new \RuntimeException($message);
+            }
         }
 
         $synced = 0;
@@ -175,9 +181,15 @@ class SyncService
         return \Context::getContext()->link->getBaseLink($idShop, $ssl);
     }
 
-    private function websiteKey(string $url): string
+    /**
+     * Host of a URL, compared like Pricee checks that a product belongs to a
+     * website: case-insensitive, without "www.".
+     */
+    private function websiteHost(string $url): string
     {
-        return strtolower((string) preg_replace('#^https?://#i', '', rtrim($url, '/')));
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        return (string) preg_replace('/^www\./', '', $host);
     }
 
     /**

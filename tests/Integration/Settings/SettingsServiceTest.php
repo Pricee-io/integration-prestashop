@@ -8,8 +8,8 @@ use PriceeIO\Settings\SettingsService;
 use PriceeIO\Tests\Integration\IntegrationTestCase;
 
 /**
- * Level the settings are saved at: credentials shared or per shop, webhook
- * settings per shop only.
+ * Level the settings are saved at: credentials and webhook settings per shop
+ * only, as each shop is its own website on Pricee.
  *
  * @internal
  *
@@ -42,7 +42,7 @@ class SettingsServiceTest extends IntegrationTestCase
         $this->setMultistore(false);
 
         $this->assertSame(SettingsService::SCOPE_SINGLE, $this->settings->scope());
-        $this->assertTrue($this->settings->webhookEditable());
+        $this->assertTrue($this->settings->editable());
 
         $this->settings->save($this->values());
 
@@ -53,134 +53,51 @@ class SettingsServiceTest extends IntegrationTestCase
         $this->assertSame([], $this->shopLevelKeys());
     }
 
-    public function testAllShopsSavesSharedCredentialsButNoWebhookSettings(): void
+    public function testAllShopsSavesNothing(): void
     {
         $this->setMultistore(true);
         $this->setContext(\Shop::CONTEXT_ALL);
 
         $this->assertSame(SettingsService::SCOPE_ALL, $this->settings->scope());
-        $this->assertFalse($this->settings->webhookEditable());
+        $this->assertFalse($this->settings->editable());
 
         $this->settings->save($this->values());
 
-        $this->assertSame('client', $this->storedValue('PRICEE_CLIENT_ID', null, null));
-        $this->assertSame('key', $this->storedValue('PRICEE_API_KEY', null, null));
-        $this->assertNull($this->storedValue('PRICEE_WEBHOOK_ENABLED', null, null), 'a webhook setting for all shops would only match one Pricee website');
+        // An API key is scoped to one Pricee website: shared, it would only fit one shop
+        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, null));
+        $this->assertNull($this->storedValue('PRICEE_API_KEY', null, null));
         $this->assertNull($this->storedValue('PRICEE_WEBHOOK_SECRET', null, null));
     }
 
-    public function testAllShopsListsTheShopsUsingTheirOwnCredentials(): void
-    {
-        $this->setMultistore(true);
-        $otherShop = new \Shop($this->otherShopId());
-        \Configuration::updateValue('PRICEE_CLIENT_ID', 'own-client', false, (int) $otherShop->id_shop_group, (int) $otherShop->id);
-        $this->setContext(\Shop::CONTEXT_ALL);
-
-        $this->assertSame([$otherShop->name], $this->settings->credentialOverrides());
-    }
-
-    public function testAllShopsListsTheGroupsUsingTheirOwnCredentials(): void
-    {
-        $this->setMultistore(true);
-        $idGroup = (int) \Context::getContext()->shop->id_shop_group;
-        // Saved from the group context, as the module page would
-        $this->setContext(\Shop::CONTEXT_GROUP, $idGroup);
-        \Configuration::updateValue('PRICEE_API_KEY', 'group-key');
-        $this->setContext(\Shop::CONTEXT_ALL);
-
-        $this->assertSame([(new \ShopGroup($idGroup))->name.' (groupe)'], $this->settings->credentialOverrides());
-    }
-
-    public function testGroupSavesGroupCredentialsButNoWebhookSettings(): void
+    public function testGroupSavesNothing(): void
     {
         $this->setMultistore(true);
         $idGroup = (int) \Context::getContext()->shop->id_shop_group;
         $this->setContext(\Shop::CONTEXT_GROUP, $idGroup);
 
         $this->assertSame(SettingsService::SCOPE_GROUP, $this->settings->scope());
-        $this->assertFalse($this->settings->webhookEditable());
+        $this->assertFalse($this->settings->editable());
 
         $this->settings->save($this->values());
 
-        $this->assertSame('client', $this->storedValue('PRICEE_CLIENT_ID', $idGroup, null));
-        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, null));
+        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', $idGroup, null));
         $this->assertNull($this->storedValue('PRICEE_WEBHOOK_SECRET', $idGroup, null));
     }
 
-    public function testShopWithOwnCredentialsSavesThemForThatShopOnly(): void
+    public function testShopSavesItsOwnSettingsOnly(): void
     {
         $this->setMultistore(true);
-        \Configuration::updateGlobalValue('PRICEE_CLIENT_ID', 'shared-client');
         $this->setContext(\Shop::CONTEXT_SHOP, $this->shopId());
 
-        $this->settings->save($this->values(), false);
+        $this->assertTrue($this->settings->editable());
+
+        $this->settings->save($this->values());
 
         $this->assertSame('client', $this->storedValue('PRICEE_CLIENT_ID', null, $this->shopId()));
-        $this->assertSame('shared-client', $this->storedValue('PRICEE_CLIENT_ID', null, null), 'the shared value is untouched');
-        $this->resetCaches();
-        $this->assertFalse($this->settings->usesSharedCredentials());
-    }
-
-    public function testShopSwitchingToOwnCredentialsRequiresAnApiKey(): void
-    {
-        $this->setMultistore(true);
-        \Configuration::updateGlobalValue('PRICEE_CLIENT_ID', 'shared-client');
-        \Configuration::updateGlobalValue('PRICEE_API_KEY', 'shared-key');
-        $this->setContext(\Shop::CONTEXT_SHOP, $this->shopId());
-
-        // The password field is never filled in: left empty, the shop would
-        // keep the shared key behind its own client ID
-        $errors = $this->settings->save(['PRICEE_API_KEY' => ''] + $this->values(), false);
-
-        $this->assertSame([SettingsService::ERROR_API_KEY_REQUIRED], $errors);
-        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, $this->shopId()), 'nothing is saved');
-        $this->assertNull($this->storedValue('PRICEE_WEBHOOK_SECRET', null, $this->shopId()));
-        $this->resetCaches();
-        $this->assertTrue($this->settings->usesSharedCredentials());
-    }
-
-    public function testShopWithItsOwnApiKeyKeepsItWhenLeftEmpty(): void
-    {
-        $this->setMultistore(true);
-        \Configuration::updateValue('PRICEE_CLIENT_ID', 'own-client', false, null, $this->shopId());
-        \Configuration::updateValue('PRICEE_API_KEY', 'own-key', false, null, $this->shopId());
-        $this->setContext(\Shop::CONTEXT_SHOP, $this->shopId());
-
-        $this->assertSame([], $this->settings->save(['PRICEE_API_KEY' => ''] + $this->values(), false));
-        $this->assertSame('own-key', $this->storedValue('PRICEE_API_KEY', null, $this->shopId()));
-        $this->assertSame('client', $this->storedValue('PRICEE_CLIENT_ID', null, $this->shopId()));
-    }
-
-    public function testShopSwitchingToSharedCredentialsDropsItsOwn(): void
-    {
-        $this->setMultistore(true);
-        \Configuration::updateGlobalValue('PRICEE_CLIENT_ID', 'shared-client');
-        \Configuration::updateValue('PRICEE_CLIENT_ID', 'own-client', false, null, $this->shopId());
-        \Configuration::updateValue('PRICEE_API_KEY', 'own-key', false, null, $this->shopId());
-        $this->setContext(\Shop::CONTEXT_SHOP, $this->shopId());
-        $this->assertFalse($this->settings->usesSharedCredentials());
-
-        // The credential fields are disabled in the form, so not submitted
-        $this->settings->save(['PRICEE_WEBHOOK_ENABLED' => '1', 'PRICEE_WEBHOOK_SECRET' => 'secret'], true);
-
-        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, $this->shopId()));
-        $this->assertNull($this->storedValue('PRICEE_API_KEY', null, $this->shopId()));
-        $this->resetCaches();
-        $this->assertTrue($this->settings->usesSharedCredentials());
-        $this->assertSame('shared-client', \Configuration::get('PRICEE_CLIENT_ID', null, null, $this->shopId()));
-    }
-
-    public function testShopSavesItsOwnWebhookSettings(): void
-    {
-        $this->setMultistore(true);
-        $this->setContext(\Shop::CONTEXT_SHOP, $this->shopId());
-
-        $this->settings->save($this->values(), true);
-
-        $this->assertTrue($this->settings->webhookEditable());
+        $this->assertSame('key', $this->storedValue('PRICEE_API_KEY', null, $this->shopId()));
         $this->assertSame('secret', $this->storedValue('PRICEE_WEBHOOK_SECRET', null, $this->shopId()));
-        $this->assertNull($this->storedValue('PRICEE_WEBHOOK_SECRET', null, null));
-        $this->assertNull($this->storedValue('PRICEE_WEBHOOK_SECRET', null, $this->otherShopId()), 'other shops are untouched');
+        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, null));
+        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, $this->otherShopId()), 'other shops are untouched');
     }
 
     public function testEmptyApiKeyKeepsTheStoredOne(): void
@@ -191,6 +108,37 @@ class SettingsServiceTest extends IntegrationTestCase
         $this->settings->save(['PRICEE_CLIENT_ID' => 'client', 'PRICEE_API_KEY' => '']);
 
         $this->assertSame('stored-key', $this->storedValue('PRICEE_API_KEY', null, null));
+    }
+
+    public function testUpgradeMovesSharedCredentialsToTheShops(): void
+    {
+        $this->setMultistore(true);
+        \Configuration::updateGlobalValue('PRICEE_CLIENT_ID', 'shared-client');
+        \Configuration::updateGlobalValue('PRICEE_API_KEY', 'shared-key');
+        // The other shop already uses its own credentials
+        \Configuration::updateValue('PRICEE_CLIENT_ID', 'own-client', false, null, $this->otherShopId());
+        \Configuration::updateValue('PRICEE_API_KEY', 'own-key', false, null, $this->otherShopId());
+        $this->resetCaches();
+
+        $this->settings->moveSharedCredentialsToShops();
+
+        $this->assertSame('shared-client', $this->storedValue('PRICEE_CLIENT_ID', null, $this->shopId()));
+        $this->assertSame('shared-key', $this->storedValue('PRICEE_API_KEY', null, $this->shopId()));
+        $this->assertSame('own-client', $this->storedValue('PRICEE_CLIENT_ID', null, $this->otherShopId()));
+        $this->assertSame('own-key', $this->storedValue('PRICEE_API_KEY', null, $this->otherShopId()));
+        $this->assertNull($this->storedValue('PRICEE_CLIENT_ID', null, null), 'no shared credentials left');
+        $this->assertNull($this->storedValue('PRICEE_API_KEY', null, null));
+    }
+
+    public function testUpgradeKeepsGlobalCredentialsWithoutMultistore(): void
+    {
+        $this->setMultistore(false);
+        \Configuration::updateGlobalValue('PRICEE_CLIENT_ID', 'client');
+
+        $this->settings->moveSharedCredentialsToShops();
+
+        $this->assertSame('client', $this->storedValue('PRICEE_CLIENT_ID', null, null));
+        $this->assertSame([], $this->shopLevelKeys());
     }
 
     /**

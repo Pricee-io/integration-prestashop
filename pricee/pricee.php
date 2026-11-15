@@ -154,7 +154,6 @@ class Pricee extends Module
         $helper->token = Tools::getAdminTokenLite('AdminModules');
 
         $values = $settings->formValues();
-        $values['PRICEE_SHARED_CREDENTIALS'] = (int) $settings->usesSharedCredentials();
         $values['PRICEE_WEBHOOK_URL_DISPLAY'] = $this->context->link->getModuleLink($this->name, 'webhook', [], true, null, (int) $this->context->shop->id);
 
         $helper->tpl_vars = [
@@ -163,13 +162,7 @@ class Pricee extends Module
             'id_language' => $this->context->language->id,
         ];
 
-        $output = $helper->generateForm([$this->getConfigForm($settings)]);
-
-        if (SettingsService::SCOPE_SHOP === $settings->scope()) {
-            $output .= $this->context->smarty->fetch($this->local_path.'views/templates/admin/settings.tpl');
-        }
-
-        return $output;
+        return $helper->generateForm([$this->getConfigForm($settings)]);
     }
 
     /**
@@ -181,33 +174,24 @@ class Pricee extends Module
         $scope = $settings->scope();
         $inputs = [];
 
-        if (SettingsService::SCOPE_SHOP === $scope) {
-            $inputs[] = $this->switchInput(
-                'PRICEE_SHARED_CREDENTIALS',
-                $this->l('Utiliser les identifiants communs'),
-                $this->l('Oui : cette boutique utilise les identifiants définis pour toutes les boutiques ou pour son groupe. Non : elle utilise ses propres identifiants ci-dessous.')
-            );
-        }
-
-        $inputs[] = [
-            'col' => 3,
-            'type' => 'text',
-            'prefix' => '<i class="icon icon-envelope"></i>',
-            'name' => 'PRICEE_CLIENT_ID',
-            'label' => $this->l('ID Client'),
-            'desc' => $this->credentialsHelp($settings),
-        ];
-        $inputs[] = [
-            'col' => 3,
-            'type' => 'password',
-            'name' => 'PRICEE_API_KEY',
-            // The core template forces a 160px width on password
-            // inputs: let it fill its column like the text inputs.
-            'form_group_class' => 'pricee-fluid-input',
-            'label' => $this->l('Clé API'),
-        ];
-
-        if ($settings->webhookEditable()) {
+        if ($settings->editable()) {
+            $inputs[] = [
+                'col' => 3,
+                'type' => 'text',
+                'prefix' => '<i class="icon icon-envelope"></i>',
+                'name' => 'PRICEE_CLIENT_ID',
+                'label' => $this->l('ID Client'),
+                'desc' => $this->l('Créez la clé API depuis la page Intégrations du site web de cette boutique sur Pricee.io : chaque clé API est liée à un site web.'),
+            ];
+            $inputs[] = [
+                'col' => 3,
+                'type' => 'password',
+                'name' => 'PRICEE_API_KEY',
+                // The core template forces a 160px width on password
+                // inputs: let it fill its column like the text inputs.
+                'form_group_class' => 'pricee-fluid-input',
+                'label' => $this->l('Clé API'),
+            ];
             $inputs[] = $this->switchInput(
                 'PRICEE_WEBHOOK_ENABLED',
                 $this->l('Activer la synchronisation webhook'),
@@ -232,26 +216,27 @@ class Pricee extends Module
         } else {
             $inputs[] = [
                 'type' => 'html',
-                'name' => 'PRICEE_WEBHOOK_SHOP_ONLY',
-                'label' => $this->l('Webhook'),
+                'name' => 'PRICEE_SHOP_ONLY',
+                'label' => $this->l('Réglages'),
                 'html_content' => '<div class="alert alert-info">'
-                    .htmlspecialchars($this->l('Le webhook se configure boutique par boutique, car chaque boutique a son propre site et son propre webhook sur Pricee.io : sélectionnez une boutique dans le sélecteur de boutiques en haut de page pour le configurer.'), ENT_QUOTES, 'UTF-8')
+                    .htmlspecialchars($this->l('Les identifiants Pricee et le webhook se configurent boutique par boutique, car chaque boutique a son propre site web, sa propre clé API et son propre webhook sur Pricee.io : sélectionnez une boutique dans le sélecteur de boutiques en haut de page pour les configurer.'), ENT_QUOTES, 'UTF-8')
                     .'</div>',
             ];
         }
 
-        return [
-            'form' => [
-                'legend' => [
-                    'title' => $this->l('Configuration').' — '.$this->scopeLabel($scope),
-                    'icon' => 'icon-cogs',
-                ],
-                'input' => $inputs,
-                'submit' => [
-                    'title' => $this->l('Enregistrer'),
-                ],
+        $form = [
+            'legend' => [
+                'title' => $this->l('Configuration').' — '.$this->scopeLabel($scope),
+                'icon' => 'icon-cogs',
             ],
+            'input' => $inputs,
         ];
+        // Nothing to save for all shops or a group
+        if ($settings->editable()) {
+            $form['submit'] = ['title' => $this->l('Enregistrer')];
+        }
+
+        return ['form' => $form];
     }
 
     /**
@@ -267,10 +252,11 @@ class Pricee extends Module
             $values[$key] = (string) Tools::getValue($key);
         }
 
-        $errors = $settings->save($values, (bool) Tools::getValue('PRICEE_SHARED_CREDENTIALS'));
-        if (in_array(SettingsService::ERROR_API_KEY_REQUIRED, $errors, true)) {
-            return $this->displayError($this->l('Saisissez la clé API de cette boutique pour qu\'elle utilise ses propres identifiants. Les réglages n\'ont pas été enregistrés.'));
+        if (!$settings->editable()) {
+            return '';
         }
+
+        $settings->save($values);
 
         return $this->displayConfirmation($this->l('Réglages enregistrés.'));
     }
@@ -314,28 +300,6 @@ class Pricee extends Module
             default:
                 return (string) $this->context->shop->name;
         }
-    }
-
-    /**
-     * Which shops the credentials being edited apply to, in multistore.
-     */
-    private function credentialsHelp(SettingsService $settings): string
-    {
-        $scope = $settings->scope();
-        if (!in_array($scope, [SettingsService::SCOPE_ALL, SettingsService::SCOPE_GROUP], true)) {
-            return '';
-        }
-
-        $applies = SettingsService::SCOPE_ALL === $scope
-            ? $this->l('Ces identifiants s\'appliquent à toutes les boutiques')
-            : $this->l('Ces identifiants s\'appliquent à toutes les boutiques du groupe');
-
-        $overrides = $settings->credentialOverrides();
-        if ([] === $overrides) {
-            return $applies.'.';
-        }
-
-        return htmlspecialchars($applies.', '.$this->l('sauf celles qui ont leurs propres identifiants :').' '.implode(', ', $overrides).'.', ENT_QUOTES, 'UTF-8');
     }
 
     /**

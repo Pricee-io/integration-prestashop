@@ -28,6 +28,9 @@ class RecordingHttpClient
      */
     public array $products = [];
 
+    /** IRI of the website the API key is scoped to, returned at login */
+    public ?string $scopedWebsite = '/api/v1/websites/'.self::WEBSITE_UUID;
+
     /** extId whose creation is refused, like when the Pricee product limit is reached */
     public ?string $failProductCreationFor = null;
 
@@ -78,7 +81,7 @@ class RecordingHttpClient
     private function respond(string $method, string $path, array $query, $json): MockResponse
     {
         if ('POST' === $method && 'login' === $path) {
-            return $this->json(['token' => 'test-token']);
+            return $this->json(null === $this->scopedWebsite ? ['token' => 'test-token'] : ['token' => 'test-token', 'website' => $this->scopedWebsite]);
         }
 
         if ('GET' === $method && 'websites' === $path) {
@@ -88,9 +91,7 @@ class RecordingHttpClient
         }
 
         if ('POST' === $method && 'websites' === $path) {
-            $this->addWebsite((string) $json['url']);
-
-            return $this->json(end($this->websites), 201);
+            return $this->json(['detail' => 'This API key is scoped to a website and cannot create websites.'], 403);
         }
 
         if ('GET' === $method && 'website_products' === $path) {
