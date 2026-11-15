@@ -7,30 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Multistore: choose the shop to sync in the sync form; each shop is registered on Pricee with its own URL, and only shows its own categories and product counts
-- Multistore: show which level the settings form edits; Pricee credentials are shared by default and a shop can switch to its own, and webhook settings are configured shop by shop
-- Sync large catalogs without timeouts: products are sent in batches with a progress indicator, and the 500-product limit is removed
-- Show the number of products in error at the end of a sync, and ask to select a category when none is checked
-- Send product URLs in the shop's default language instead of the back-office user's language
-- Fix products enabled in a shop but disabled in the default shop being left out of the sync
-- Only update the base price of a product through the webhook: products with a promotion, quantity discount, catalog price rule, ecotax or visitor group discount are no longer updated, and promotions are never modified
-- Skip webhook price updates that would go below the product's cost price, for disabled products or products with a hidden price, for products of another shop, in a currency other than the shop's, or when the same product is sent twice
-- Fix webhook prices being saved tax included in shops displaying tax-included prices, which added the tax a second time
-- Match webhook updates to the right product: an unknown product ID is skipped instead of being looked up by URL, and a URL only matches the product whose name it contains
-- Keep receiving webhook price updates while the shop is in maintenance mode
-- Fix the API key field being narrower than the other settings fields
-- Multistore: a shop switching to its own credentials must enter its own API key instead of silently keeping the shared one
-- Show a confirmation when the settings are saved
-- Only employees allowed to configure the module can run a sync
-- Fix the sync always failing with "Invalid token" on PrestaShop 9
+- Support PrestaShop 9.2.1, and allow installing the module on later PrestaShop versions
 - Fix the back office of PrestaShop 1.7.8 shops failing to load once the module is installed
-- During sync, a product whose URL is already tracked for another product is reported in error instead of taking over its tracking
-- Keep the price per unit (e.g. per kg) consistent when the webhook changes a product's price
-- Skip webhook price updates when visitors see no prices (catalog mode, or prices hidden for the visitor group)
-- No longer rewrite a product's price through the webhook when the price visitors see does not change
-- Reject replayed webhook calls reliably, even when several calls arrive at the same time
+- Fix the sync always failing with "Invalid token" on PrestaShop 9
 - Fix the module being disabled when upgrading from version 1.0.0
-- Support PrestaShop 9.2.1
+- Multistore: choose the shop to sync; each shop is registered on Pricee with its own URL and only shows its own categories, including products disabled only in the default shop
+- Multistore: show which level the settings form edits; Pricee credentials are shared by default and a shop can use its own, with its own API key, and the webhook is configured shop by shop
+- Sync large catalogs without timeouts and without the 500-product limit, with a progress indicator and the number of products in error
+- Send product URLs in the shop's default language, and report a product in error instead of taking over another product's tracking
+- Only employees allowed to configure the module can run a sync
+- Only update the base price of simple products through the webhook: products with variants, packs, or any promotion, quantity discount, catalog price rule, ecotax or visitor group discount are skipped, and promotions are never modified
+- Skip webhook price updates below the product's cost price, in another currency, for disabled products or prices hidden from visitors (catalog mode included), for products of another shop, or sent twice in a call
+- Never overwrite a price you changed yourself since Pricee last read it, and no longer rewrite a price visitors already see
+- Fix webhook prices being saved tax included in shops displaying tax-included prices, which added the tax a second time
+- Keep the price per unit (e.g. per kg) consistent when the webhook changes a product's price
+- Match webhook updates to the right product: an unknown product ID is skipped instead of being looked up by URL, and a URL only matches the product whose name it contains
+- The webhook keeps working in maintenance mode, no longer creates visitor statistics, no longer stops halfway on large updates, and reliably rejects replayed calls
+- Show a confirmation when the settings are saved, and fix the API key field being narrower than the others
 
 ## [1.3.5] - 2026-11-04
 

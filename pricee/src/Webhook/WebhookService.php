@@ -40,6 +40,7 @@ class WebhookService
     public const SKIPPED_PROMOTION = 'skipped_promotion';
     public const SKIPPED_ECOTAX = 'skipped_ecotax';
     public const SKIPPED_GROUP_DISCOUNT = 'skipped_group_discount';
+    public const SKIPPED_PRICE_CHANGED_IN_SHOP = 'skipped_price_changed_in_shop';
     public const SKIPPED_BELOW_COST = 'skipped_below_cost';
     public const SKIPPED_UNIT_PRICE = 'skipped_unit_price';
     public const FAILED = 'failed';
@@ -173,7 +174,20 @@ class WebhookService
             return $this->skip(self::SKIPPED_GROUP_DISCOUNT, 'visitors get a group discount', $product);
         }
 
+        // Pricee computes the new price from the price it last read on the
+        // page: when the merchant changed it since, their change wins
         $displayFactor = $this->displayFactor($product, $idShop);
+        $currentPrice = (float) $product->price;
+        $precision = max(0, (int) $shopCurrency->precision);
+        $displayedPrice = round($currentPrice * $displayFactor, $precision);
+        $readPrice = $productData['currentPriceAmount'] ?? null;
+        if (!is_numeric($readPrice)) {
+            return $this->skip(self::SKIPPED_PRICE_CHANGED_IN_SHOP, 'no current price sent to compare with the shop price', $product);
+        }
+        if (abs($displayedPrice - round((float) $readPrice, $precision)) >= 0.000001) {
+            return $this->skip(self::SKIPPED_PRICE_CHANGED_IN_SHOP, 'the shop price '.$displayedPrice.' is no longer the one Pricee read ('.$readPrice.')', $product);
+        }
+
         $newPrice = round((float) $rawPrice / $displayFactor, 6);
 
         // Never sell below the cost price
@@ -183,9 +197,7 @@ class WebhookService
 
         // Compared as visitors see it, rounded to the currency precision: a
         // stored price differing only in its hidden decimals is unchanged
-        $currentPrice = (float) $product->price;
-        $precision = max(0, (int) $shopCurrency->precision);
-        if (abs(round($currentPrice * $displayFactor, $precision) - round((float) $rawPrice, $precision)) < 0.000001) {
+        if (abs($displayedPrice - round((float) $rawPrice, $precision)) < 0.000001) {
             return self::UNCHANGED;
         }
 

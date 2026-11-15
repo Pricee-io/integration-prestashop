@@ -1,11 +1,11 @@
 # PrestaShop integration
 
-Simplified description of what the PrestaShop module (`pricee/`) does, to check its behavior against what is expected. Compatible with PrestaShop 1.7.8 to 9.2.1, PHP 7.4+.
+Simplified description of what the PrestaShop module (`pricee/`) does, to check its behavior against what is expected. Tested on PrestaShop 1.7.8 to 9.2.1 and installable on later versions, PHP 7.4+.
 
 The module does two things:
 
 1. **Sync** (shop → Pricee): sends the shop's products to Pricee so they get tracked.
-2. **Webhook** (Pricee → shop): receives the best price found by Pricee and writes it as the product's price.
+2. **Webhook** (Pricee → shop): receives the price Pricee computed for each product, lower or higher than the current one, and writes it as the product's price.
 
 ## Module page
 
@@ -57,7 +57,7 @@ The sync never deletes anything on Pricee: unchecking a category or disabling a 
 
 ## Webhook (Pricee → shop)
 
-Pricee calls `https://<shop>/module/pricee/webhook` with a list of products and their best price. Each shop has its own URL; the call only affects the shop that receives it.
+Pricee calls `https://<shop>/module/pricee/webhook` with a list of products, the price to set for each (from the website's pricing rule and the product's floor and reference price, see the Pricee app) and the price Pricee last read on the product page. Each shop has its own URL; the call only affects the shop that receives it.
 
 ### The whole call is refused if
 
@@ -66,8 +66,6 @@ Pricee calls `https://<shop>/module/pricee/webhook` with a list of products and 
 - the signature does not match the secret;
 - the body is not a valid JSON list;
 - an entry has no timestamp or no nonce, a timestamp more than 5 minutes off, or a nonce already used (replay protection; used nonces are remembered for 10 minutes, per shop, and a nonce is accepted only once even when several calls arrive at the same time).
-
-The webhook still works when the shop is in maintenance mode or restricts countries.
 
 ### Price-writing rules
 
@@ -86,9 +84,10 @@ Writing a price is the critical action of the module, so the rule is: **when in 
 | 9 | No promotion | Any promotion, quantity discount or catalog price rule exists for this product in this shop or for all shops, for anyone (any customer, group, currency, country), current or scheduled. Only expired ones and those of other shops are ignored. Promotions are never created or edited. |
 | 10 | No ecotax | Ecotax is enabled and the product has an ecotax (the displayed price includes it). |
 | 11 | No group discount | Visitors (not logged in) get a customer group discount, globally or on the product's category. |
-| 12 | Not below cost | The new price, tax excluded, is below the product's cost price (when one is set). |
-| 13 | Changed | The new price is the current one as visitors see it (rounded to the currency's decimals): nothing is written. |
-| 14 | Unit price | The product has a price per unit (e.g. per kg) but a current price of 0, so its unit price cannot be adjusted. |
+| 12 | Price unchanged in the shop | The price Pricee last read (`currentPriceAmount`) is missing, or is no longer the price visitors see (rounded to the currency's decimals): the merchant changed it since, and their change wins. |
+| 13 | Not below cost | The new price, tax excluded, is below the product's cost price (when one is set). |
+| 14 | Changed | The new price is the current one as visitors see it (rounded to the currency's decimals): nothing is written. |
+| 15 | Unit price | The product has a price per unit (e.g. per kg) but a current price of 0, so its unit price cannot be adjusted. |
 
 When every check passes, the **base price** of the product is replaced:
 
@@ -98,7 +97,9 @@ When every check passes, the **base price** of the product is replaced:
 
 There is no limit on the size of a change on the plugin side: Pricee never sends a price below the product's floor (its minimum price, or its reference price lowered by the largest decrease set for the website or the product, whichever is higher), and never raises a price above its reference price.
 
-The call answers 200 "Webhook received and validated" even when some entries were skipped.
+The call answers 200 "Webhook received and validated" even when some entries were skipped, with the number of entries per outcome (`updated_price`, `unchanged`, `skipped_promotion`…), which Pricee logs.
+
+The call is answered before the shop's front office starts: no visitor cookie, cart or statistics are created, and it works whatever the maintenance mode or country restrictions. It may run for up to 5 minutes, as each product written runs the shop's hooks.
 
 ## Install / uninstall
 

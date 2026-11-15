@@ -13,38 +13,40 @@ use PriceeIO\Webhook\WebhookService;
  */
 class PriceeWebhookModuleFrontController extends ModuleFrontController
 {
-    public function initContent(): void
+    /**
+     * Answered before the front office starts: a server-to-server call needs
+     * no visitor cookie, cart or statistics, and must work whatever the
+     * maintenance mode or country restrictions.
+     */
+    public function init(): void
     {
-        parent::initContent();
+        // A large call writes many products, each one running the shop's hooks
+        @set_time_limit(300);
 
         $body = (string) file_get_contents('php://input');
         $signature = (string) ($_SERVER['HTTP_X_SIGNATURE'] ?? '');
 
         try {
-            (new WebhookService())->handle($body, $signature, (int) $this->context->shop->id);
+            $outcomes = (new WebhookService())->handle($body, $signature, (int) $this->context->shop->id);
+            $this->sendResponse(200, [
+                'success' => true,
+                'message' => 'Webhook received and validated',
+                // How many entries were updated, unchanged or skipped, and why
+                'outcomes' => array_count_values($outcomes),
+            ]);
         } catch (WebhookRejectedException $e) {
-            $this->sendResponse($e->getCode(), false, $e->getMessage());
+            $this->sendResponse($e->getCode(), ['success' => false, 'message' => $e->getMessage()]);
         }
-
-        $this->sendResponse(200, true, 'Webhook received and validated');
     }
 
     /**
-     * The webhook is a server-to-server call: it must keep working while the
-     * shop is in maintenance mode.
+     * @param array<string, mixed> $answer
      */
-    protected function displayMaintenancePage() {}
-
-    /**
-     * The webhook is a server-to-server call: geolocation restrictions apply
-     * to visitors, not to Pricee.
-     */
-    protected function displayRestrictedCountryPage() {}
-
-    private function sendResponse(int $statusCode, bool $success, string $message): void
+    private function sendResponse(int $statusCode, array $answer): void
     {
         http_response_code($statusCode);
-        echo json_encode(['success' => $success, 'message' => $message]);
+        header('Content-Type: application/json');
+        echo json_encode($answer);
 
         exit;
     }

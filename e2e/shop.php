@@ -144,6 +144,8 @@ function entry(Product $product, float $price): array
         'extId' => (string) $product->id,
         'bestPriceAmount' => $price,
         'bestPriceCurrency' => (new Currency((int) Configuration::get('PS_CURRENCY_DEFAULT')))->iso_code,
+        // The e2e products have no tax: visitors see the stored price
+        'currentPriceAmount' => storedPrice($product),
         'timestamp' => time(),
         'nonce' => bin2hex(random_bytes(16)),
     ];
@@ -217,6 +219,7 @@ function webhook(): void
 
     [$status, $response, $body] = sendWebhook([entry($simple, 8.0), entry($promoted, 7.0)]);
     assertSame(200, $status, 'signed call accepted ('.$response.')');
+    assertSame(['updated_price' => 1, 'skipped_promotion' => 1], json_decode($response, true)['outcomes'] ?? null, 'answer counts each outcome');
     assertSame(8.0, storedPrice($simple), 'simple product price written');
     assertSame(10.0, storedPrice($promoted), 'product with a promotion left untouched');
 

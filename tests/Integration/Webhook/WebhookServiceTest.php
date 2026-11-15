@@ -386,7 +386,8 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct('Pricee taxed product', 100.0, [], $this->createTaxRulesGroup(20.0));
         $this->setVisitorPricesTaxIncluded(true);
 
-        $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90])]);
+        // Read as visitors see it: 100 tax excluded is shown 120
+        $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90, 'currentPriceAmount' => 120])]);
 
         $this->assertProductPrice($product, 75.0);
     }
@@ -396,7 +397,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct('Pricee taxed product', 100.0, [], $this->createTaxRulesGroup(20.0));
         $this->setVisitorPricesTaxIncluded(false);
 
-        $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90])]);
+        $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90, 'currentPriceAmount' => 100])]);
 
         $this->assertProductPrice($product, 90.0);
     }
@@ -609,7 +610,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->setVisitorPricesTaxIncluded(true);
 
         // 90 tax included is 75 tax excluded, below the cost of 80
-        $this->assertSame([WebhookService::SKIPPED_BELOW_COST], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90])]));
+        $this->assertSame([WebhookService::SKIPPED_BELOW_COST], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90, 'currentPriceAmount' => 120])]));
         $this->assertProductPrice($product, 100.0);
     }
 
@@ -669,6 +670,27 @@ class WebhookServiceTest extends IntegrationTestCase
     // Helpers
     // ---------------------------------------------------------------
 
+    public function testPriceChangedInTheShopSinceReadIsSkipped(): void
+    {
+        $product = $this->createProduct();
+        $this->resetProductPrice($product, 15.0); // the merchant raised it after Pricee read 10
+
+        $outcomes = $this->send([$this->entry(['extId' => (string) $product->id, 'currentPriceAmount' => 10.0])]);
+
+        $this->assertSame([WebhookService::SKIPPED_PRICE_CHANGED_IN_SHOP], $outcomes);
+        $this->assertProductPrice($product, 15.0);
+    }
+
+    public function testEntryWithoutTheReadPriceIsSkipped(): void
+    {
+        $product = $this->createProduct();
+        $entry = $this->entry(['extId' => (string) $product->id]);
+        unset($entry['currentPriceAmount']);
+
+        $this->assertSame([WebhookService::SKIPPED_PRICE_CHANGED_IN_SHOP], $this->send([$entry]));
+        $this->assertProductPrice($product, 10.0);
+    }
+
     /**
      * @param array<string, mixed> $overrides
      *
@@ -681,6 +703,8 @@ class WebhookServiceTest extends IntegrationTestCase
             'extId' => '999999999',
             'bestPriceAmount' => 9.0,
             'bestPriceCurrency' => $this->currency,
+            // The price of createProduct(), as Pricee read it
+            'currentPriceAmount' => 10.0,
             'timestamp' => time(),
             'nonce' => bin2hex(random_bytes(16)),
         ], $overrides);
