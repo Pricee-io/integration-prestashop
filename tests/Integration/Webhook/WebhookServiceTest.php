@@ -134,7 +134,7 @@ class WebhookServiceTest extends IntegrationTestCase
     public function testRejectsReplayedPayload(): void
     {
         $product = $this->createProduct();
-        $entries = [$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 8.5])];
+        $entries = [$this->entry(['extId' => (string) $product->id, 'priceAmount' => 8.5])];
 
         $this->assertSame([WebhookService::UPDATED_PRICE], $this->send($entries));
 
@@ -194,8 +194,8 @@ class WebhookServiceTest extends IntegrationTestCase
         $nonce = bin2hex(random_bytes(16));
 
         $outcomes = $this->send([
-            $this->entry(['extId' => (string) $first->id, 'bestPriceAmount' => 7, 'nonce' => $nonce]),
-            $this->entry(['extId' => (string) $second->id, 'bestPriceAmount' => 6, 'nonce' => $nonce]),
+            $this->entry(['extId' => (string) $first->id, 'priceAmount' => 7, 'nonce' => $nonce]),
+            $this->entry(['extId' => (string) $second->id, 'priceAmount' => 6, 'nonce' => $nonce]),
         ]);
 
         $this->assertSame([WebhookService::UPDATED_PRICE, WebhookService::UPDATED_PRICE], $outcomes);
@@ -211,7 +211,7 @@ class WebhookServiceTest extends IntegrationTestCase
     {
         $product = $this->createProduct();
 
-        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 9.9])]));
+        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 9.9])]));
         $this->assertProductPrice($product, 9.9);
     }
 
@@ -317,7 +317,7 @@ class WebhookServiceTest extends IntegrationTestCase
     {
         $product = $this->createProduct();
         $entry = $this->entry(['extId' => (string) $product->id]);
-        unset($entry['bestPriceAmount']);
+        unset($entry['priceAmount']);
 
         $this->assertSame([WebhookService::SKIPPED_NO_PRICE], $this->send([$entry]));
     }
@@ -327,9 +327,9 @@ class WebhookServiceTest extends IntegrationTestCase
         $products = [$this->createProduct('Pricee zero'), $this->createProduct('Pricee negative'), $this->createProduct('Pricee text')];
 
         $outcomes = $this->send([
-            $this->entry(['extId' => (string) $products[0]->id, 'bestPriceAmount' => 0]),
-            $this->entry(['extId' => (string) $products[1]->id, 'bestPriceAmount' => -5]),
-            $this->entry(['extId' => (string) $products[2]->id, 'bestPriceAmount' => 'abc']),
+            $this->entry(['extId' => (string) $products[0]->id, 'priceAmount' => 0]),
+            $this->entry(['extId' => (string) $products[1]->id, 'priceAmount' => -5]),
+            $this->entry(['extId' => (string) $products[2]->id, 'priceAmount' => 'abc']),
         ]);
 
         $this->assertSame(array_fill(0, 3, WebhookService::SKIPPED_INVALID_PRICE), $outcomes);
@@ -345,8 +345,8 @@ class WebhookServiceTest extends IntegrationTestCase
         $otherCurrency = 'EUR' === strtoupper($this->currency) ? 'USD' : 'EUR';
 
         $outcomes = $this->send([
-            $this->entry(['extId' => (string) $otherCurrencyProduct->id, 'bestPriceCurrency' => $otherCurrency]),
-            $this->entry(['extId' => (string) $noCurrencyProduct->id, 'bestPriceCurrency' => null]),
+            $this->entry(['extId' => (string) $otherCurrencyProduct->id, 'priceCurrency' => $otherCurrency]),
+            $this->entry(['extId' => (string) $noCurrencyProduct->id, 'priceCurrency' => null]),
         ]);
 
         $this->assertSame([WebhookService::SKIPPED_CURRENCY, WebhookService::SKIPPED_CURRENCY], $outcomes);
@@ -360,7 +360,7 @@ class WebhookServiceTest extends IntegrationTestCase
 
         $this->assertSame(
             [WebhookService::UPDATED_PRICE],
-            $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceCurrency' => strtolower($this->currency)])])
+            $this->send([$this->entry(['extId' => (string) $product->id, 'priceCurrency' => strtolower($this->currency)])])
         );
     }
 
@@ -370,7 +370,7 @@ class WebhookServiceTest extends IntegrationTestCase
 
         $outcomes = $this->send([
             $this->entry(['extId' => '999999999']),
-            $this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 8]),
+            $this->entry(['extId' => (string) $product->id, 'priceAmount' => 8]),
         ]);
 
         $this->assertSame([WebhookService::SKIPPED_UNKNOWN_PRODUCT, WebhookService::UPDATED_PRICE], $outcomes);
@@ -387,7 +387,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->setVisitorPricesTaxIncluded(true);
 
         // Read as visitors see it: 100 tax excluded is shown 120
-        $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90, 'currentPriceAmount' => 120])]);
+        $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 90, 'currentPriceAmount' => 120])]);
 
         $this->assertProductPrice($product, 75.0);
     }
@@ -397,7 +397,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct('Pricee taxed product', 100.0, [], $this->createTaxRulesGroup(20.0));
         $this->setVisitorPricesTaxIncluded(false);
 
-        $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90, 'currentPriceAmount' => 100])]);
+        $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 90, 'currentPriceAmount' => 100])]);
 
         $this->assertProductPrice($product, 90.0);
     }
@@ -415,7 +415,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $promotion = $this->createSpecificPrice($fields);
         $before = $this->specificPriceRow((int) $promotion->id);
 
-        $this->assertSame([WebhookService::SKIPPED_PROMOTION], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 7])]));
+        $this->assertSame([WebhookService::SKIPPED_PROMOTION], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 7])]));
 
         $this->assertProductPrice($product, 10.0);
         $this->assertSame($before, $this->specificPriceRow((int) $promotion->id), 'the promotion must not change');
@@ -459,7 +459,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct();
         $this->createSpecificPrice(['id_product' => (int) $product->id, 'from' => '2020-01-01 00:00:00', 'to' => '2020-12-31 00:00:00']);
 
-        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 7])]));
+        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 7])]));
         $this->assertProductPrice($product, 7.0);
     }
 
@@ -469,7 +469,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct();
         $this->createSpecificPrice(['id_product' => (int) $product->id, 'id_shop' => $this->otherShopId()]);
 
-        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 7])]));
+        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 7])]));
         $this->assertProductPrice($product, 7.0);
     }
 
@@ -588,7 +588,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
-        $this->assertSame([WebhookService::SKIPPED_BELOW_COST], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 7.99])]));
+        $this->assertSame([WebhookService::SKIPPED_BELOW_COST], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 7.99])]));
         $this->assertProductPrice($product, 10.0);
     }
 
@@ -599,7 +599,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
-        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 8])]));
+        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 8])]));
     }
 
     public function testCostIsComparedTaxExcluded(): void
@@ -610,7 +610,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->setVisitorPricesTaxIncluded(true);
 
         // 90 tax included is 75 tax excluded, below the cost of 80
-        $this->assertSame([WebhookService::SKIPPED_BELOW_COST], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 90, 'currentPriceAmount' => 120])]));
+        $this->assertSame([WebhookService::SKIPPED_BELOW_COST], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 90, 'currentPriceAmount' => 120])]));
         $this->assertProductPrice($product, 100.0);
     }
 
@@ -618,7 +618,7 @@ class WebhookServiceTest extends IntegrationTestCase
     {
         $product = $this->createProduct();
 
-        $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 10])]));
+        $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 10])]));
     }
 
     public function testSameDisplayedPriceIsNotRewritten(): void
@@ -627,7 +627,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $product = $this->createProduct('Pricee taxed product', 8.33333, [], $this->createTaxRulesGroup(20.0));
         $this->setVisitorPricesTaxIncluded(true);
 
-        $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 10])]));
+        $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 10])]));
         $this->assertProductPrice($product, 8.33333);
     }
 
@@ -642,7 +642,7 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->assertTrue((bool) $product->update());
         $this->resetCaches();
 
-        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 8])]));
+        $this->assertSame([WebhookService::UPDATED_PRICE], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 8])]));
 
         $this->resetCaches();
         $reloaded = new \Product((int) $product->id, false, null, $this->shopId());
@@ -655,10 +655,10 @@ class WebhookServiceTest extends IntegrationTestCase
         $other = $this->createProduct('Pricee other product');
 
         $outcomes = $this->send([
-            $this->entry(['extId' => (string) $product->id, 'bestPriceAmount' => 7]),
-            $this->entry(['extId' => (string) $other->id, 'bestPriceAmount' => 7]),
+            $this->entry(['extId' => (string) $product->id, 'priceAmount' => 7]),
+            $this->entry(['extId' => (string) $other->id, 'priceAmount' => 7]),
             // Same product again, matched by URL this time
-            $this->entry(['extId' => null, 'url' => 'https://shop.example/'.$product->id.'-pricee-twice-product.html', 'bestPriceAmount' => 6]),
+            $this->entry(['extId' => null, 'url' => 'https://shop.example/'.$product->id.'-pricee-twice-product.html', 'priceAmount' => 6]),
         ]);
 
         $this->assertSame([WebhookService::SKIPPED_DUPLICATE, WebhookService::UPDATED_PRICE, WebhookService::SKIPPED_DUPLICATE], $outcomes);
@@ -701,8 +701,8 @@ class WebhookServiceTest extends IntegrationTestCase
         return array_merge([
             'url' => 'https://shop.example/unknown',
             'extId' => '999999999',
-            'bestPriceAmount' => 9.0,
-            'bestPriceCurrency' => $this->currency,
+            'priceAmount' => 9.0,
+            'priceCurrency' => $this->currency,
             // The price of createProduct(), as Pricee read it
             'currentPriceAmount' => 10.0,
             'timestamp' => time(),

@@ -142,8 +142,8 @@ function entry(Product $product, float $price): array
     return [
         'url' => Context::getContext()->link->getProductLink($product),
         'extId' => (string) $product->id,
-        'bestPriceAmount' => $price,
-        'bestPriceCurrency' => (new Currency((int) Configuration::get('PS_CURRENCY_DEFAULT')))->iso_code,
+        'priceAmount' => $price,
+        'priceCurrency' => (new Currency((int) Configuration::get('PS_CURRENCY_DEFAULT')))->iso_code,
         // The e2e products have no tax: visitors see the stored price
         'currentPriceAmount' => storedPrice($product),
         'timestamp' => time(),

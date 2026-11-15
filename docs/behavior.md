@@ -73,7 +73,7 @@ Writing a price is the critical action of the module, so the rule is: **when in 
 
 | # | Check | Skipped when |
 |---|---|---|
-| 1 | Price received | `bestPriceAmount` is missing. |
+| 1 | Price received | `priceAmount` is missing. |
 | 2 | Valid price | The price is not a number, or is 0 or negative. |
 | 3 | Currency | The currency is missing or is not the shop's default currency (no conversion is done). |
 | 4 | Product found | With an `extId`: no product has that ID (never falls back to the URL). Without `extId` (products synced before it existed): the URL does not point to an existing product, or the name in the URL is not that product's own. |

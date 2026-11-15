@@ -114,11 +114,11 @@ class WebhookService
      */
     private function applyEntry(array $productData, ?\Product $product, int $idShop): string
     {
-        if (!isset($productData['bestPriceAmount'])) {
+        if (!isset($productData['priceAmount'])) {
             return self::SKIPPED_NO_PRICE;
         }
 
-        $rawPrice = $productData['bestPriceAmount'];
+        $rawPrice = $productData['priceAmount'];
         if (!is_numeric($rawPrice) || (float) $rawPrice <= 0) {
             return $this->skip(self::SKIPPED_INVALID_PRICE, 'invalid price '.print_r($rawPrice, true), $product);
         }
@@ -126,7 +126,7 @@ class WebhookService
         // Product prices are stored in the shop default currency: an amount in
         // another currency cannot be written as is
         $shopCurrency = new \Currency((int) \Configuration::get('PS_CURRENCY_DEFAULT', null, null, $idShop));
-        $currency = $productData['bestPriceCurrency'] ?? null;
+        $currency = $productData['priceCurrency'] ?? null;
         if (!is_string($currency) || strtoupper($currency) !== strtoupper((string) $shopCurrency->iso_code)) {
             return $this->skip(self::SKIPPED_CURRENCY, 'price currency '.print_r($currency, true).' is not the shop currency '.$shopCurrency->iso_code, $product);
         }
