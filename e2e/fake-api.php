@@ -82,6 +82,14 @@ if ('GET' === $method && 'websites' === $route) {
     return;
 }
 
+if ('GET' === $method && 'websites/'.substr(WEBSITE_IRI, strlen('/api/v1/websites/')) === $route) {
+    // The key reads its own website: the shop's (its URL is given by run.sh)
+    saveState($state);
+    respond(200, ['@id' => WEBSITE_IRI, 'url' => (string) getenv('PRICEE_E2E_WEBSITE_URL')]);
+
+    return;
+}
+
 if ('POST' === $method && 'websites' === $route) {
     // API keys are scoped to a website: they cannot create websites
     saveState($state);

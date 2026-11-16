@@ -31,6 +31,9 @@ class RecordingHttpClient
     /** IRI of the website the API key is scoped to, returned at login */
     public ?string $scopedWebsite = '/api/v1/websites/'.self::WEBSITE_UUID;
 
+    /** URL of the key's website when the test added none, like the real API always has one */
+    public ?string $keyWebsiteUrl = null;
+
     /** extId whose creation is refused, like when the Pricee product limit is reached */
     public ?string $failProductCreationFor = null;
 
@@ -84,10 +87,18 @@ class RecordingHttpClient
             return $this->json(null === $this->scopedWebsite ? ['token' => 'test-token'] : ['token' => 'test-token', 'website' => $this->scopedWebsite]);
         }
 
-        if ('GET' === $method && 'websites' === $path) {
-            $page = (int) ($query['page'] ?? 1);
+        if ('GET' === $method && 0 === strpos($path, 'websites/')) {
+            // A key reads its own website: one added by the test, else the shop's
+            $id = substr($path, strlen('websites/'));
+            foreach ($this->websites as $website) {
+                if ($website['id'] === $id) {
+                    return $this->json($website);
+                }
+            }
 
-            return $this->json(['member' => array_slice($this->websites, ($page - 1) * 30, 30)]);
+            return null !== $this->keyWebsiteUrl
+                ? $this->json(['@id' => '/api/v1/websites/'.$id, 'id' => $id, 'url' => $this->keyWebsiteUrl])
+                : $this->json(['detail' => 'Not Found'], 404);
         }
 
         if ('POST' === $method && 'websites' === $path) {

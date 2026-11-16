@@ -146,7 +146,7 @@ step "Webhook over HTTP"
 in_shop php /tmp/e2e/shop.php webhook
 
 step "Sync from the back office"
-docker exec -d --user www-data "$SHOP" php -S 127.0.0.1:8090 /tmp/e2e/fake-api.php
+docker exec -d --user www-data -e PRICEE_E2E_WEBSITE_URL="http://localhost:${PORT}" "$SHOP" php -S 127.0.0.1:8090 /tmp/e2e/fake-api.php
 for i in $(seq 1 20); do
     docker exec "$SHOP" curl -s -o /dev/null http://127.0.0.1:8090/_state && break
     [ "$i" = 20 ] && { echo "Fake Pricee API did not start"; exit 1; }

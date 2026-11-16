@@ -11,8 +11,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class ApiService
 {
     private const DEFAULT_BASE_URL = 'https://app.pricee.io/api/v1/';
-    private const API_PAGE_SIZE = 30;
-    private const MAX_WEBSITE_PAGES = 20;
 
     private HttpClientInterface $httpClient;
 
@@ -75,40 +73,34 @@ class ApiService
         }
     }
 
-    public function getWebsites(string $bearer): array
+    /**
+     * The website an API key is scoped to, read directly: a key can always
+     * read its own website, however many websites the account has.
+     *
+     * @return array<string, mixed>
+     */
+    public function getWebsite(string $bearer, string $websiteId): array
     {
-        $websites = [];
-        $page = 1;
-
         try {
-            do {
-                $response = $this->httpClient->request('GET', $this->baseUrl().'websites?page='.$page, [
-                    'headers' => [
-                        'Content-Type' => 'application/json',
-                        'Authorization' => 'Bearer '.$bearer,
-                    ],
-                ]);
+            $response = $this->httpClient->request('GET', $this->baseUrl().'websites/'.$this->extractUuid($websiteId), [
+                'headers' => [
+                    'Accept' => 'application/ld+json',
+                    'Authorization' => 'Bearer '.$bearer,
+                ],
+            ]);
 
-                $status = $response->getStatusCode();
+            $status = $response->getStatusCode();
+            if (200 !== $status) {
+                throw new \RuntimeException(sprintf(
+                    'Failed to fetch the website of the API key. Status: %d. Response: %s',
+                    $status,
+                    $response->getContent(false),
+                ));
+            }
 
-                if (200 !== $status) {
-                    throw new \RuntimeException(sprintf(
-                        'Failed to fetch websites. Status: %d. Response: %s',
-                        $status,
-                        $response->getContent(false),
-                    ));
-                }
-
-                $data = $response->toArray(false);
-
-                $members = $data['member'] ?? [];
-                $websites = array_merge($websites, $members);
-                ++$page;
-            } while (count($members) >= self::API_PAGE_SIZE && $page <= self::MAX_WEBSITE_PAGES);
-
-            return $websites;
+            return $response->toArray(false);
         } catch (ClientExceptionInterface|TransportExceptionInterface $e) {
-            throw new \RuntimeException('Failed to fetch websites: '.$e->getMessage(), 0, $e);
+            throw new \RuntimeException('Failed to fetch the website of the API key: '.$e->getMessage(), 0, $e);
         }
     }
 

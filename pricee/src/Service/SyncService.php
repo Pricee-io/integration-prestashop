@@ -50,7 +50,6 @@ class SyncService
         try {
             $login = $this->apiService->login($clientId, $apiKey);
             $bearer = $login['token'];
-            $websites = $this->apiService->getWebsites($bearer);
         } catch (\Throwable $e) {
             \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
 
@@ -71,17 +70,24 @@ class SyncService
             throw new \RuntimeException($message);
         }
 
-        foreach ($websites as $w) {
-            if ($w['@id'] === $websiteId && $this->websiteHost((string) $w['url']) !== $this->websiteHost($normalizedWebsiteUrl)) {
-                $message = sprintf(
-                    'This API key belongs to the Pricee website %s, not to this shop (%s). Use an API key created from the Integrations page of this shop\'s website on Pricee.',
-                    $w['url'],
-                    $normalizedWebsiteUrl
-                );
-                \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$message, 3);
+        try {
+            $website = $this->apiService->getWebsite($bearer, $websiteId);
+        } catch (\Throwable $e) {
+            \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
 
-                throw new \RuntimeException($message);
-            }
+            throw $e;
+        }
+
+        $keyWebsiteUrl = is_string($website['url'] ?? null) ? $website['url'] : '';
+        if ($this->websiteHost($keyWebsiteUrl) !== $this->websiteHost($normalizedWebsiteUrl)) {
+            $message = sprintf(
+                'This API key belongs to the Pricee website %s, not to this shop (%s). Use an API key created from the Integrations page of this shop\'s website on Pricee.',
+                $keyWebsiteUrl,
+                $normalizedWebsiteUrl
+            );
+            \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$message, 3);
+
+            throw new \RuntimeException($message);
         }
 
         $synced = 0;

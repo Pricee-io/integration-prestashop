@@ -29,6 +29,7 @@ class SyncServiceTest extends IntegrationTestCase
         $this->setConfiguration('PRICEE_API_KEY', 'key');
 
         $this->api = new RecordingHttpClient();
+        $this->api->keyWebsiteUrl = $this->shopFrontUrl();
         $this->service = new SyncService(new ApiService($this->api->client()));
     }
 

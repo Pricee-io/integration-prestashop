@@ -114,13 +114,11 @@ class ApiServiceTest extends TestCase
         $this->assertSame(['website' => RecordingHttpClient::WEBSITE_UUID, 'url' => 'https://shop.example/p/1'], $lookups[1]['query']);
     }
 
-    public function testWebsitesArePaginated(): void
+    public function testReadsTheWebsiteOfTheKeyDirectly(): void
     {
-        for ($i = 0; $i < 31; ++$i) {
-            $this->api->addWebsite('https://site'.$i.'.example');
-        }
+        $this->api->addWebsite('https://shop.example');
 
-        $this->assertCount(31, $this->service->getWebsites('token'));
-        $this->assertCount(2, $this->api->requestsTo('GET', 'websites'));
+        $this->assertSame('https://shop.example', $this->service->getWebsite('token', self::WEBSITE_ID)['url']);
+        $this->assertSame(['websites/'.RecordingHttpClient::WEBSITE_UUID], array_column($this->api->requestsTo('GET', 'websites'), 'path'));
     }
 }
