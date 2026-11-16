@@ -18,7 +18,7 @@ set -euo pipefail
 PS_TAG="${1:-9.2.1-apache}"
 DB_IMAGE="${2:-mariadb:11.4}"
 PORT="${E2E_PORT:-8082}"
-FROM_REF="${E2E_FROM_REF:-cc74b62}" # 2.0.0: fix of the upgrade on PrestaShop 1.7.8
+FROM_REF="${E2E_FROM_REF:-655f20c}" # 2.0.1
 DEV_IMAGE="${E2E_DEV_IMAGE:-integration-prestashop-dev}"
 # Same version as the playwright package in e2e/package.json
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.49.1-noble"
