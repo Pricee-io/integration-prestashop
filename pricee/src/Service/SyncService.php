@@ -11,6 +11,12 @@ class SyncService
      * each stays short whatever the size of the selection (no timeout).
      */
     public const BATCH_SIZE = 50;
+
+    /** Configuration key of the login reused between batches (see login()) */
+    public const LOGIN_KEY = 'PRICEE_API_LOGIN';
+
+    /** A Pricee token lasts an hour: reused 45 minutes */
+    private const LOGIN_TTL = 2700;
     private ApiService $apiService;
 
     public function __construct(
@@ -47,35 +53,47 @@ class SyncService
         $clientId = (string) \Configuration::get('PRICEE_CLIENT_ID', null, null, $idShop);
         $apiKey = (string) \Configuration::get('PRICEE_API_KEY', null, null, $idShop);
 
-        try {
-            $login = $this->apiService->login($clientId, $apiKey);
-            $bearer = $login['token'];
-        } catch (\Throwable $e) {
-            \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
-
-            throw $e;
-        }
-
         // In multistore each shop can have its own domain, so the website
         // registered on Pricee must be the shop front URL, not the host of
         // the back-office request
         $normalizedWebsiteUrl = rtrim($this->getShopWebsiteUrl($idShop), '/');
 
-        // Each API key is scoped to a website: sync to it, never to another one
-        $websiteId = $login['website'];
-        if (null === $websiteId) {
-            $message = 'This API key is not tied to a website. Create an API key from the Integrations page of this shop\'s website on Pricee.';
-            \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$message, 3);
+        // The login of a previous batch is reused; a reused token that is
+        // refused is replaced by a new login, once
+        $fresh = false;
+        while (true) {
+            try {
+                $login = $this->login($idShop, $clientId, $apiKey, $fresh);
+            } catch (\Throwable $e) {
+                \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
 
-            throw new \RuntimeException($message);
-        }
+                throw $e;
+            }
+            $bearer = $login['token'];
 
-        try {
-            $website = $this->apiService->getWebsite($bearer, $websiteId);
-        } catch (\Throwable $e) {
-            \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
+            // Each API key is scoped to a website: sync to it, never to another one
+            $websiteId = $login['website'];
+            if (null === $websiteId) {
+                $message = 'This API key is not tied to a website. Create an API key from the Integrations page of this shop\'s website on Pricee.';
+                \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$message, 3);
 
-            throw $e;
+                throw new \RuntimeException($message);
+            }
+
+            try {
+                $website = $this->apiService->getWebsite($bearer, $websiteId);
+
+                break;
+            } catch (\Throwable $e) {
+                if (!$fresh && 401 === $e->getCode()) {
+                    $fresh = true;
+
+                    continue;
+                }
+                \PrestaShopLogger::addLog('Pricee sync (shop '.$idShop.'): '.$e->getMessage(), 3);
+
+                throw $e;
+            }
         }
 
         $keyWebsiteUrl = is_string($website['url'] ?? null) ? $website['url'] : '';
@@ -153,6 +171,36 @@ class SyncService
         return _DB_PREFIX_.'category_product cp
             INNER JOIN '._DB_PREFIX_.'product_shop ps ON ps.id_product = cp.id_product AND ps.id_shop = '.(int) $idShop.'
             WHERE ps.active = 1';
+    }
+
+    /**
+     * Log in to Pricee for a shop, reusing the login of a previous batch:
+     * Pricee allows few logins per minute, and a token lasts an hour, so a
+     * large sync logs in once instead of once per batch. Kept 45 minutes in
+     * the shop's configuration, for the API key it was made with.
+     *
+     * @return array{token: string, website: ?string}
+     */
+    private function login(int $idShop, string $clientId, string $apiKey, bool $fresh): array
+    {
+        $idShopGroup = (int) \Shop::getGroupFromShop($idShop);
+        $keyHash = hash('sha256', $clientId.'|'.$apiKey);
+
+        $stored = json_decode((string) \Configuration::get(self::LOGIN_KEY, null, $idShopGroup, $idShop), true);
+        if (!$fresh && is_array($stored) && ($stored['key'] ?? null) === $keyHash
+            && (int) ($stored['expires'] ?? 0) > time() && is_string($stored['token'] ?? null)) {
+            return ['token' => $stored['token'], 'website' => is_string($stored['website'] ?? null) ? $stored['website'] : null];
+        }
+
+        $login = $this->apiService->login($clientId, $apiKey);
+        \Configuration::updateValue(self::LOGIN_KEY, (string) json_encode([
+            'key' => $keyHash,
+            'token' => $login['token'],
+            'website' => $login['website'],
+            'expires' => time() + self::LOGIN_TTL,
+        ]), false, $idShopGroup, $idShop);
+
+        return $login;
     }
 
     /**

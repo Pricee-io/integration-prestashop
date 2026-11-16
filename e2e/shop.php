@@ -295,10 +295,14 @@ function checkSync(): void
     }
     pass('product URLs are the front-office product pages');
 
-    $logins = count(array_filter($state['requests'], function (array $request): bool {
-        return 'login' === $request['route'];
+    $routes = array_column($state['requests'], 'route');
+    // Each batch checks the key's website
+    $batches = count(array_filter($routes, function (string $route): bool {
+        return 0 === strpos($route, 'websites/');
     }));
-    assertSame((int) ceil(SYNC_PRODUCTS / 50), $logins, 'sync sent in batches (one login per batch)');
+    assertSame((int) ceil(SYNC_PRODUCTS / 50), $batches, 'sync sent in batches of 50');
+    // Pricee allows few logins per minute: the batches reuse the first one's token
+    assertSame(1, count(array_keys($routes, 'login', true)), 'one login for the whole sync');
 }
 
 $command = $argv[1] ?? '';

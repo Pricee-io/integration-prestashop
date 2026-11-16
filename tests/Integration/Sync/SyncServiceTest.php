@@ -28,6 +28,9 @@ class SyncServiceTest extends IntegrationTestCase
         $this->setConfiguration('PRICEE_CLIENT_ID', 'client');
         $this->setConfiguration('PRICEE_API_KEY', 'key');
 
+        // Each test logs in afresh: no login kept by a previous one
+        \Configuration::deleteByName(SyncService::LOGIN_KEY);
+
         $this->api = new RecordingHttpClient();
         $this->api->keyWebsiteUrl = $this->shopFrontUrl();
         $this->service = new SyncService(new ApiService($this->api->client()));
@@ -222,14 +225,33 @@ class SyncServiceTest extends IntegrationTestCase
         $this->assertSame([], $this->api->requestsTo('POST', 'website_products'));
     }
 
-    public function testLogsInOncePerBatch(): void
+    public function testLogsInOnceForTheBatchesOfASync(): void
+    {
+        // Pricee allows few logins per minute: the next batches reuse the token
+        $category = $this->createCategory('Pricee category');
+        $first = $this->createProduct('Pricee product', 10, [(int) $category->id]);
+        $this->createProduct('Pricee product 2', 10, [(int) $category->id]);
+
+        $this->service->sync($this->shopId(), [(int) $category->id], 0, 1);
+        $this->service->sync($this->shopId(), [(int) $category->id], (int) $first->id, 1);
+
+        $this->assertCount(1, $this->api->requestsTo('POST', 'login'));
+        $this->assertCount(2, $this->api->requestsTo('POST', 'website_products'));
+    }
+
+    public function testLogsInAgainWhenTheReusedTokenIsRefused(): void
     {
         $category = $this->createCategory('Pricee category');
         $this->createProduct('Pricee product', 10, [(int) $category->id]);
-
         $this->service->sync($this->shopId(), [(int) $category->id]);
 
-        $this->assertCount(1, $this->api->requestsTo('POST', 'login'));
+        // The token expired on Pricee before the next sync
+        $this->api->refusedToken = 'test-token';
+        $this->api->token = 'new-token';
+        $result = $this->service->sync($this->shopId(), [(int) $category->id]);
+
+        $this->assertSame(1, $result['synced']);
+        $this->assertCount(2, $this->api->requestsTo('POST', 'login'));
     }
 
     public function testNothingToSyncDoesNotCallPricee(): void

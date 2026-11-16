@@ -91,11 +91,12 @@ class ApiService
 
             $status = $response->getStatusCode();
             if (200 !== $status) {
+                // The status as code: a 401 tells a reused token has expired
                 throw new \RuntimeException(sprintf(
                     'Failed to fetch the website of the API key. Status: %d. Response: %s',
                     $status,
                     $response->getContent(false),
-                ));
+                ), $status);
             }
 
             return $response->toArray(false);

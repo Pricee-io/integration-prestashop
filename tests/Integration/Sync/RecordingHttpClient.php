@@ -31,6 +31,12 @@ class RecordingHttpClient
     /** IRI of the website the API key is scoped to, returned at login */
     public ?string $scopedWebsite = '/api/v1/websites/'.self::WEBSITE_UUID;
 
+    /** Token returned at login */
+    public string $token = 'test-token';
+
+    /** Token the API refuses with a 401, like an expired one */
+    public ?string $refusedToken = null;
+
     /** URL of the key's website when the test added none, like the real API always has one */
     public ?string $keyWebsiteUrl = null;
 
@@ -48,6 +54,11 @@ class RecordingHttpClient
             $json = isset($options['body']) && '' !== $options['body'] ? json_decode((string) $options['body'], true) : null;
 
             $this->requests[] = ['method' => $method, 'path' => $path, 'query' => $query, 'json' => $json];
+
+            $authorization = $options['normalized_headers']['authorization'][0] ?? '';
+            if (null !== $this->refusedToken && 'Authorization: Bearer '.$this->refusedToken === $authorization) {
+                return $this->json(['message' => 'Expired JWT Token'], 401);
+            }
 
             return $this->respond($method, $path, $query, $json);
         }, 'https://app.pricee.io/api/v1/');
@@ -84,7 +95,7 @@ class RecordingHttpClient
     private function respond(string $method, string $path, array $query, $json): MockResponse
     {
         if ('POST' === $method && 'login' === $path) {
-            return $this->json(null === $this->scopedWebsite ? ['token' => 'test-token'] : ['token' => 'test-token', 'website' => $this->scopedWebsite]);
+            return $this->json(null === $this->scopedWebsite ? ['token' => $this->token] : ['token' => $this->token, 'website' => $this->scopedWebsite]);
         }
 
         if ('GET' === $method && 0 === strpos($path, 'websites/')) {

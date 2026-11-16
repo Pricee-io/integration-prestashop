@@ -86,6 +86,7 @@ class Pricee extends Module
         Configuration::deleteByName('PRICEE_WEBHOOK_SECRET');
         // Stored the webhook nonces before 1.4.0
         Configuration::deleteByName('PRICEE_WEBHOOK_NONCES');
+        Configuration::deleteByName(SyncService::LOGIN_KEY);
 
         include __DIR__.'/sql/uninstall.php';
 
