@@ -621,6 +621,15 @@ class WebhookServiceTest extends IntegrationTestCase
         $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 10])]));
     }
 
+    public function testARetriedCallWhoseFirstAttemptWasAppliedIsUnchanged(): void
+    {
+        // The first attempt set 10 but its answer came too late: the retry still carries the 12 Pricee read
+        $product = $this->createProduct();
+
+        $this->assertSame([WebhookService::UNCHANGED], $this->send([$this->entry(['extId' => (string) $product->id, 'priceAmount' => 10, 'currentPriceAmount' => 12])]));
+        $this->assertProductPrice($product, 10.0);
+    }
+
     public function testSameDisplayedPriceIsNotRewritten(): void
     {
         // 8.33333 + 20% is 9.999996, shown as 10.00: receiving 10 is no change

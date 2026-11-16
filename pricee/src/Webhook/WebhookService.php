@@ -185,6 +185,14 @@ class WebhookService
         if (!is_numeric($readPrice)) {
             return $this->skip(self::SKIPPED_NO_READ_PRICE, 'no current price sent to compare with the shop price', $product);
         }
+        // Compared as visitors see it, rounded to the currency precision: a
+        // stored price differing only in its hidden decimals is unchanged.
+        // Checked first: a retried call whose first attempt was applied finds
+        // the price already set, not changed in the shop
+        if (abs($displayedPrice - round((float) $rawPrice, $precision)) < 0.000001) {
+            return self::UNCHANGED;
+        }
+
         if (abs($displayedPrice - round((float) $readPrice, $precision)) >= 0.000001) {
             return $this->skip(self::SKIPPED_PRICE_CHANGED_IN_SHOP, 'the shop price '.$displayedPrice.' is no longer the one Pricee read ('.$readPrice.')', $product);
         }
@@ -194,12 +202,6 @@ class WebhookService
         // Never sell below the cost price
         if ((float) $product->wholesale_price > 0 && $newPrice < (float) $product->wholesale_price) {
             return $this->skip(self::SKIPPED_BELOW_COST, 'new price '.$newPrice.' is below the cost price '.$product->wholesale_price, $product);
-        }
-
-        // Compared as visitors see it, rounded to the currency precision: a
-        // stored price differing only in its hidden decimals is unchanged
-        if (abs($displayedPrice - round((float) $rawPrice, $precision)) < 0.000001) {
-            return self::UNCHANGED;
         }
 
         // The price per unit (e.g. per kg) keeps its ratio to the price. Since
