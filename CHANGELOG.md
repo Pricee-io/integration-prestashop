@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-11-16
+
+- Large catalogs sync to the end: the sync no longer logs in to Pricee for each batch of products, which Pricee limits
+- A price update from Pricee retried after a slow answer is now reported as unchanged instead of skipped
+- The check that the API key belongs to this shop's website works however many websites your Pricee account has
+
 ## [2.0.0] - 2026-11-15
 
 - Products are synced to the Pricee website your API key belongs to: create the API key from the Integrations page of your shop's website on Pricee
