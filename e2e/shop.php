@@ -221,14 +221,17 @@ function webhook(): void
     assertSame(200, $status, 'signed call accepted ('.$response.')');
     assertSame(['updated_price' => 1, 'skipped_promotion' => 1], json_decode($response, true)['outcomes'] ?? null, 'answer counts each outcome');
     assertSame(['updated_price', 'skipped_promotion'], json_decode($response, true)['results'] ?? null, 'answer gives each entry its outcome, in order');
+    $plugin = ['platform' => 'prestashop', 'version' => Module::getInstanceByName('pricee')->version];
+    assertSame($plugin + ['platform_version' => _PS_VERSION_, 'runtime' => 'php', 'runtime_version' => PHP_VERSION], json_decode($response, true)['plugin'] ?? null, 'answer gives the plugin, PrestaShop version and runtime');
     assertSame(8.0, storedPrice($simple), 'simple product price written');
     assertSame(10.0, storedPrice($promoted), 'product with a promotion left untouched');
 
     [$status] = sendWebhook([], null, $body);
     assertSame(401, $status, 'replayed call refused');
 
-    [$status] = sendWebhook([entry($simple, 5.0)], 'wrong-secret');
+    [$status, $response] = sendWebhook([entry($simple, 5.0)], 'wrong-secret');
     assertSame(401, $status, 'call with a wrong signature refused');
+    assertSame($plugin, json_decode($response, true)['plugin'] ?? null, 'refused call gives the plugin and its version only');
     assertSame(8.0, storedPrice($simple), 'refused calls write nothing');
 
     // Maintenance mode, without the local IP allowed: visitors get the

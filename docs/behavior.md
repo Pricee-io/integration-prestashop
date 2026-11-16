@@ -94,7 +94,7 @@ When every check passes, the **base price** of the product is replaced:
 
 There is no limit on the size of a change on the plugin side: Pricee never sends a price below the product's floor (its minimum price, or its reference price lowered by the largest decrease set for the website or the product, whichever is higher), and never raises a price above its reference price.
 
-The call answers 200 "Webhook received and validated" even when some entries were skipped, with the number of entries per outcome (`outcomes`: `updated_price`, `unchanged`, `skipped_promotion`…) and the outcome of each entry in payload order (`results`), which Pricee records for each price it sent.
+The call answers 200 "Webhook received and validated" even when some entries were skipped, with the number of entries per outcome (`outcomes`: `updated_price`, `unchanged`, `skipped_promotion`…) and the outcome of each entry in payload order (`results`), which Pricee records for each price it sent. Every answer, a refused call's included, also gives the module and its version (`plugin`: `{"platform": "prestashop", "version": "…"}`), shown in Pricee's webhook history. An accepted call's answer adds the PrestaShop version (`platform_version`) and the runtime, PHP, with its version (`runtime`, `runtime_version`); a refused call's leaves them out, as anyone can read it.
 
 The call is answered before the shop's front office starts: no visitor cookie, cart or statistics are created, and it works whatever the maintenance mode or country restrictions. It may run for up to 5 minutes, as each product written runs the shop's hooks.
 
